@@ -29,6 +29,7 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
     volumes:
       - ./n8n_data:/home/node/.n8n
+      - ./n8n_files:/home/node/.n8n-files
       - ./FAQ_answers.json:/home/node/FAQ_answers.json:ro
     env_file:
       - .env
