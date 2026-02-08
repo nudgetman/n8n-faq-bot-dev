@@ -1,5 +1,5 @@
 {
-  "name": "WhatsApp FAQ Bot - Phase 1",
+  "name": "WhatsApp FAQ Bot - Phase 1 (Validated)",
   "nodes": [
     {
       "parameters": {
@@ -17,40 +17,42 @@
     },
     {
       "parameters": {
+        "mode": "manual",
         "assignments": {
           "assignments": [
             {
               "id": "message-body",
               "name": "messageBody",
-              "value": "={{ $json.payload.body }}",
+              "value": "={{ $json.body.payload.body }}",
               "type": "string"
             },
             {
               "id": "from-number",
               "name": "fromNumber",
-              "value": "={{ $json.payload.from }}",
+              "value": "={{ $json.body.payload.from }}",
               "type": "string"
             },
             {
               "id": "from-me",
               "name": "fromMe",
-              "value": "={{ $json.payload.fromMe }}",
+              "value": "={{ $json.body.payload.fromMe }}",
               "type": "boolean"
             },
             {
               "id": "timestamp",
               "name": "timestamp",
-              "value": "={{ $json.payload.timestamp }}",
+              "value": "={{ $json.body.payload.timestamp }}",
               "type": "number"
             },
             {
               "id": "session",
               "name": "session",
-              "value": "={{ $json.session }}",
+              "value": "={{ $json.body.session }}",
               "type": "string"
             }
           ]
         },
+        "includeOtherFields": false,
         "options": {}
       },
       "id": "extract-message-data",
@@ -99,13 +101,26 @@
     },
     {
       "parameters": {
-        "jsCode": "const fs = require('fs');\ntry {\n  const faqRaw = fs.readFileSync('/home/node/FAQ_answers.json', 'utf8');\n  const faqData = JSON.parse(faqRaw);\n  const allFaqs = [];\n  for (const category of faqData.categories) {\n    for (const faq of category.faqs) {\n      allFaqs.push({ \n        category: category.category, \n        question: faq.question, \n        answer: faq.answer \n      });\n    }\n  }\n  const items = $input.all();\n  for (const item of items) {\n    item.json.faqDatabase = JSON.stringify(allFaqs);\n    item.json.faqCount = allFaqs.length;\n    item.json.faqLoaded = true;\n  }\n  return items;\n} catch (error) {\n  const items = $input.all();\n  for (const item of items) {\n    item.json.faqDatabase = null;\n    item.json.faqLoaded = false;\n    item.json.faqError = error.message;\n  }\n  return items;\n}"
+        "filePath": "/home/node/FAQ_answers.json",
+        "dataPropertyName": "data"
       },
-      "id": "load-faq-answers",
-      "name": "Load_FAQ_Answers",
+      "id": "read-faq-file",
+      "name": "Read_FAQ_File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Parse the binary FAQ file data\ntry {\n  const binaryData = $input.first().binary.data;\n  const jsonString = Buffer.from(binaryData.data, 'base64').toString('utf-8');\n  const faqData = JSON.parse(jsonString);\n  \n  // Flatten FAQ structure\n  const allFaqs = [];\n  for (const category of faqData.categories) {\n    for (const faq of category.faqs) {\n      allFaqs.push({\n        category: category.category,\n        question: faq.question,\n        answer: faq.answer\n      });\n    }\n  }\n  \n  // Get the message data from the Extract_Message_Data node\n  const extractedData = $node[\"Extract_Message_Data\"].json;\n  \n  return [{\n    json: {\n      faqDatabase: JSON.stringify(allFaqs),\n      faqCount: allFaqs.length,\n      faqLoaded: true,\n      messageBody: extractedData.messageBody,\n      fromNumber: extractedData.fromNumber,\n      fromMe: extractedData.fromMe,\n      timestamp: extractedData.timestamp,\n      session: extractedData.session\n    }\n  }];\n} catch (error) {\n  // Get the message data for error path\n  const extractedData = $node[\"Extract_Message_Data\"].json;\n  \n  return [{\n    json: {\n      faqDatabase: null,\n      faqLoaded: false,\n      faqError: error.message,\n      messageBody: extractedData.messageBody,\n      fromNumber: extractedData.fromNumber,\n      fromMe: extractedData.fromMe,\n      timestamp: extractedData.timestamp,\n      session: extractedData.session\n    }\n  }];\n}",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "parse-faq-database",
+      "name": "Parse_FAQ_Database",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [900, 180]
+      "position": [1120, 180]
     },
     {
       "parameters": {
@@ -134,20 +149,23 @@
       "name": "Check_FAQ_Loaded",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
-      "position": [1120, 180]
+      "position": [1340, 180]
     },
     {
       "parameters": {
-        "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n7. If ambiguous, request clarification rather than guessing.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;"
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n7. If ambiguous, request clarification rather than guessing.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;",
+        "mode": "runOnceForAllItems"
       },
       "id": "build-ai-prompt",
       "name": "Build_AI_Prompt",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
-      "position": [1340, 80]
+      "position": [1560, 80]
     },
     {
       "parameters": {
+        "mode": "manual",
         "assignments": {
           "assignments": [
             {
@@ -159,7 +177,7 @@
             {
               "id": "chat-id",
               "name": "chatId",
-              "value": "={{ $json.fromNumber }}",
+              "value": "={{ $node[\"Extract_Message_Data\"].json.fromNumber }}",
               "type": "string"
             },
             {
@@ -167,16 +185,23 @@
               "name": "responseText",
               "value": "={{ $json.output }}",
               "type": "string"
+            },
+            {
+              "id": "session",
+              "name": "session",
+              "value": "={{ $node[\"Extract_Message_Data\"].json.session }}",
+              "type": "string"
             }
           ]
         },
+        "includeOtherFields": false,
         "options": {}
       },
       "id": "extract-ai-response",
       "name": "Extract_AI_Response",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
-      "position": [1780, 80]
+      "position": [2000, 80]
     },
     {
       "parameters": {
@@ -194,29 +219,15 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "session",
-              "value": "={{ $json.session }}"
-            },
-            {
-              "name": "chatId",
-              "value": "={{ $json.chatId }}"
-            },
-            {
-              "name": "text",
-              "value": "={{ $json.responseText }}"
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"session\": $json.session, \"chatId\": $json.chatId, \"text\": $json.responseText } }}",
         "options": {}
       },
       "id": "send-waha-response",
       "name": "Send_WAHA_Response",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [2000, 80],
+      "position": [2220, 80],
       "credentials": {
         "headerAuth": {
           "id": "waha-api-key",
@@ -240,29 +251,15 @@
           ]
         },
         "sendBody": true,
-        "bodyParameters": {
-          "parameters": [
-            {
-              "name": "session",
-              "value": "={{ $json.session }}"
-            },
-            {
-              "name": "chatId",
-              "value": "={{ $json.fromNumber }}"
-            },
-            {
-              "name": "text",
-              "value": "We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance."
-            }
-          ]
-        },
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"session\": $node[\"Extract_Message_Data\"].json.session, \"chatId\": $node[\"Extract_Message_Data\"].json.fromNumber, \"text\": \"We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\" } }}",
         "options": {}
       },
       "id": "send-fallback-error",
       "name": "Send_Fallback_Error",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
-      "position": [1340, 280],
+      "position": [1560, 280],
       "credentials": {
         "headerAuth": {
           "id": "waha-api-key",
@@ -280,10 +277,12 @@
       "name": "Webhook_Response",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
-      "position": [2220, 180]
+      "position": [2440, 180]
     },
     {
       "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
         "options": {
           "systemMessage": "={{ $json.systemPrompt }}"
         }
@@ -292,11 +291,14 @@
       "name": "AI_FAQ_Matcher",
       "type": "@n8n/n8n-nodes-langchain.chainLlm",
       "typeVersion": 1.4,
-      "position": [1560, 80]
+      "position": [1780, 80]
     },
     {
       "parameters": {
-        "model": "claude-haiku-4-5-20251001",
+        "model": {
+          "mode": "id",
+          "value": "claude-3-5-haiku-20241022"
+        },
         "options": {
           "temperature": 0.3,
           "maxTokensToSample": 1024
@@ -306,7 +308,7 @@
       "name": "Claude_Haiku",
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.8,
-      "position": [1560, 280],
+      "position": [1780, 280],
       "credentials": {
         "anthropicApi": {
           "id": "anthropic-account",
@@ -342,14 +344,25 @@
       "main": [
         [
           {
-            "node": "Load_FAQ_Answers",
+            "node": "Read_FAQ_File",
             "type": "main",
             "index": 0
           }
         ]
       ]
     },
-    "Load_FAQ_Answers": {
+    "Read_FAQ_File": {
+      "main": [
+        [
+          {
+            "node": "Parse_FAQ_Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_FAQ_Database": {
       "main": [
         [
           {
@@ -450,6 +463,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 1,
-  "updatedAt": "2026-02-07T13:30:00.000Z",
-  "versionId": "1"
+  "updatedAt": "2026-02-08T15:30:00.000Z",
+  "versionId": "2"
 }
