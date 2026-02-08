@@ -1,0 +1,58 @@
+version: "3.8"
+
+services:
+  n8n:
+    image: n8nio/n8n:latest
+    container_name: n8n
+    ports:
+      - "5678:5678"
+    environment:
+      - N8N_BASIC_AUTH_ACTIVE=true
+      - N8N_BASIC_AUTH_USER=${N8N_BASIC_AUTH_USER}
+      - N8N_BASIC_AUTH_PASSWORD=${N8N_BASIC_AUTH_PASSWORD}
+      - N8N_HOST=0.0.0.0
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_SECURE_COOKIE=false
+      - NODE_ENV=production
+      - TZ=Asia/Kuala_Lumpur
+      # Custom environment variables for workflow
+      - CLAUDE_API_KEY=${CLAUDE_API_KEY}
+      - WAHA_API_KEY=${WAHA_API_KEY}
+      - WAHA_USERNAME=${WAHA_USERNAME}
+      - WAHA_PASSWORD=${WAHA_PASSWORD}
+      # Database connection
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=faqbot
+      - DB_USER=faqbot
+      - DB_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ./n8n_data:/home/node/.n8n
+      - ./FAQ_answers.json:/home/node/FAQ_answers.json:ro
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    environment:
+      - POSTGRES_DB=faqbot
+      - POSTGRES_USER=faqbot
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - TZ=Asia/Kuala_Lumpur
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U faqbot -d faqbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped

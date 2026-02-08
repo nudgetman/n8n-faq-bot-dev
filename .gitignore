@@ -1,0 +1,30 @@
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+
+# n8n sensitive data - exclude entire runtime directory
+n8n_data/
+
+# PostgreSQL data
+postgres_data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Documentation with sensitive information
+CLAUDE.md
+IMPLEMENTATION_PLAN.md
+PROGRESS_SO_FAR.md

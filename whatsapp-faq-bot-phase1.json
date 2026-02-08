@@ -1,0 +1,455 @@
+{
+  "name": "WhatsApp FAQ Bot - Phase 1",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-faq",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-waha-incoming",
+      "name": "Webhook_WAHA_Incoming",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-faq"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "message-body",
+              "name": "messageBody",
+              "value": "={{ $json.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number",
+              "name": "fromNumber",
+              "value": "={{ $json.payload.from }}",
+              "type": "string"
+            },
+            {
+              "id": "from-me",
+              "name": "fromMe",
+              "value": "={{ $json.payload.fromMe }}",
+              "type": "boolean"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $json.payload.timestamp }}",
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "name": "session",
+              "value": "={{ $json.session }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-message-data",
+      "name": "Extract_Message_Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "not-from-me",
+              "leftValue": "={{ $json.fromMe }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "has-message",
+              "leftValue": "={{ $json.messageBody }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-self-messages",
+      "name": "Filter_Self_Messages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const fs = require('fs');\ntry {\n  const faqRaw = fs.readFileSync('/home/node/FAQ_answers.json', 'utf8');\n  const faqData = JSON.parse(faqRaw);\n  const allFaqs = [];\n  for (const category of faqData.categories) {\n    for (const faq of category.faqs) {\n      allFaqs.push({ \n        category: category.category, \n        question: faq.question, \n        answer: faq.answer \n      });\n    }\n  }\n  const items = $input.all();\n  for (const item of items) {\n    item.json.faqDatabase = JSON.stringify(allFaqs);\n    item.json.faqCount = allFaqs.length;\n    item.json.faqLoaded = true;\n  }\n  return items;\n} catch (error) {\n  const items = $input.all();\n  for (const item of items) {\n    item.json.faqDatabase = null;\n    item.json.faqLoaded = false;\n    item.json.faqError = error.message;\n  }\n  return items;\n}"
+      },
+      "id": "load-faq-answers",
+      "name": "Load_FAQ_Answers",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 180]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "faq-loaded",
+              "leftValue": "={{ $json.faqLoaded }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-faq-loaded",
+      "name": "Check_FAQ_Loaded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1120, 180]
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n7. If ambiguous, request clarification rather than guessing.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;"
+      },
+      "id": "build-ai-prompt",
+      "name": "Build_AI_Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1340, 80]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-response",
+              "name": "aiResponse",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "chat-id",
+              "name": "chatId",
+              "value": "={{ $json.fromNumber }}",
+              "type": "string"
+            },
+            {
+              "id": "response-text",
+              "name": "responseText",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "extract-ai-response",
+      "name": "Extract_AI_Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1780, 80]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "session",
+              "value": "={{ $json.session }}"
+            },
+            {
+              "name": "chatId",
+              "value": "={{ $json.chatId }}"
+            },
+            {
+              "name": "text",
+              "value": "={{ $json.responseText }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-waha-response",
+      "name": "Send_WAHA_Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 80],
+      "credentials": {
+        "headerAuth": {
+          "id": "waha-api-key",
+          "name": "WAHA API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "session",
+              "value": "={{ $json.session }}"
+            },
+            {
+              "name": "chatId",
+              "value": "={{ $json.fromNumber }}"
+            },
+            {
+              "name": "text",
+              "value": "We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "send-fallback-error",
+      "name": "Send_Fallback_Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1340, 280],
+      "credentials": {
+        "headerAuth": {
+          "id": "waha-api-key",
+          "name": "WAHA API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.status || 'OK' }}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook_Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [2220, 180]
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      },
+      "id": "ai-chain",
+      "name": "AI_FAQ_Matcher",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [1560, 80]
+    },
+    {
+      "parameters": {
+        "model": "claude-haiku-4-5-20251001",
+        "options": {
+          "temperature": 0.3,
+          "maxTokensToSample": 1024
+        }
+      },
+      "id": "claude-haiku",
+      "name": "Claude_Haiku",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.8,
+      "position": [1560, 280],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-account",
+          "name": "Anthropic account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Webhook_WAHA_Incoming": {
+      "main": [
+        [
+          {
+            "node": "Extract_Message_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract_Message_Data": {
+      "main": [
+        [
+          {
+            "node": "Filter_Self_Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_Self_Messages": {
+      "main": [
+        [
+          {
+            "node": "Load_FAQ_Answers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Load_FAQ_Answers": {
+      "main": [
+        [
+          {
+            "node": "Check_FAQ_Loaded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_FAQ_Loaded": {
+      "main": [
+        [
+          {
+            "node": "Build_AI_Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send_Fallback_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_AI_Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI_FAQ_Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI_FAQ_Matcher": {
+      "main": [
+        [
+          {
+            "node": "Extract_AI_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Claude_Haiku",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract_AI_Response": {
+      "main": [
+        [
+          {
+            "node": "Send_WAHA_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_WAHA_Response": {
+      "main": [
+        [
+          {
+            "node": "Webhook_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_Fallback_Error": {
+      "main": [
+        [
+          {
+            "node": "Webhook_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-07T13:30:00.000Z",
+  "versionId": "1"
+}
