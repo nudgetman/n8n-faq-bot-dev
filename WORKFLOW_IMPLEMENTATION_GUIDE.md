@@ -523,13 +523,54 @@ docker exec n8n ls -lh /home/node/FAQ_answers.json
 
 ### Phase 1 Completion
 
+**⚠️ IMPORTANT: Workflow Not Yet Imported Into n8n**
+
+The workflow file `whatsapp-faq-bot-phase1-validated.json` exists but has **not been imported** into the n8n UI yet.
+
+**Next Session TODO:**
+
+- [ ] **Import workflow into n8n** ← START HERE
+  1. Open n8n at http://localhost:5678 (choowie / Nudget01?)
+  2. Click **Workflows** → **Add workflow** → **Import from file**
+  3. Select `whatsapp-faq-bot-phase1-validated.json`
+  4. Verify credentials are linked:
+     - Claude_Haiku → "Anthropic account"
+     - Send_WAHA_Response → "WAHA API Key"
+     - Send_Fallback_Error → "WAHA API Key"
+  5. **Activate** the workflow (toggle in top-right)
+  6. Test webhook URL is accessible: `http://localhost:5678/webhook/whatsapp-faq`
+
+- [ ] **Configure WAHA webhook to n8n**
+  1. Get the Production Webhook URL from the Webhook_WAHA_Incoming node
+  2. Configure WAHA to send `message` events to: `http://host.docker.internal:5678/webhook/whatsapp-faq`
+  3. Test by sending a WhatsApp message to your WAHA number
+  4. Verify webhook receives the payload in n8n
+
+- [ ] **Test with "Listen for Test Event"**
+  1. Click Webhook_WAHA_Incoming node
+  2. Click "Listen for Test Event"
+  3. Send WhatsApp message to WAHA number
+  4. Verify payload appears in n8n
+  5. Click "Execute workflow"
+  6. Check you receive AI response on WhatsApp
+
+- [ ] **Run automated test suite**
+  ```bash
+  cd /Users/najmie/n8n
+  ./test-workflow.sh
+  ```
+
+- [ ] **Verify execution results**
+  - Check n8n Executions tab
+  - Verify FAQ loads (faqCount should be > 0)
+  - Verify Claude Haiku responds
+  - Verify multi-language works (EN, MS, ZH)
+
 Once testing confirms all nodes execute correctly:
 - [x] FAQ file loads and parses
 - [x] Claude Haiku provides relevant answers
 - [x] Multi-language detection works
 - [x] Semantic matching (intent, not exact phrase)
-- [ ] **Execute tests** ← You are here
-- [ ] **Verify results**
 - [ ] **Mark Phase 1 complete**
 
 ### Phase 2: Database Integration
