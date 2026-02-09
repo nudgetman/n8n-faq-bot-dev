@@ -1,0 +1,666 @@
+{
+  "name": "WhatsApp FAQ Bot - Phase 2 (Database Integration)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-faq",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-waha-incoming",
+      "name": "Webhook_WAHA_Incoming",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "whatsapp-faq",
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "message-body",
+              "name": "messageBody",
+              "value": "={{ $json.body.payload.body }}",
+              "type": "string"
+            },
+            {
+              "id": "from-number",
+              "name": "fromNumber",
+              "value": "={{ $json.body.payload.from }}",
+              "type": "string"
+            },
+            {
+              "id": "from-me",
+              "name": "fromMe",
+              "value": "={{ $json.body.payload.fromMe }}",
+              "type": "boolean"
+            },
+            {
+              "id": "timestamp",
+              "name": "timestamp",
+              "value": "={{ $json.body.payload.timestamp }}",
+              "type": "number"
+            },
+            {
+              "id": "session",
+              "name": "session",
+              "value": "={{ $json.body.session }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "extract-message-data",
+      "name": "Extract_Message_Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "not-from-me",
+              "leftValue": "={{ $json.fromMe }}",
+              "rightValue": false,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "has-message",
+              "leftValue": "={{ $json.messageBody }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "filter-self-messages",
+      "name": "Filter_Self_Messages",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, name, status, preferred_language FROM users WHERE phone_number = $1",
+        "options": {
+          "queryParameters": "={{ { \"values\": [$json.fromNumber] } }}"
+        }
+      },
+      "id": "db-check-known-user",
+      "name": "DB_Check_Known_User",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [900, 300],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "postgresql-account",
+          "name": "PostgreSQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Merge user data from database query\nconst items = $input.all();\nconst dbResult = items[0].json;\nconst extractedData = $node[\"Extract_Message_Data\"].json;\n\nfor (const item of items) {\n  // Check if user exists in database\n  if (dbResult && dbResult.id) {\n    item.json = {\n      ...extractedData,\n      isKnownUser: true,\n      userId: dbResult.id,\n      userName: dbResult.name || 'User',\n      userStatus: dbResult.status || 'active',\n      userPreferredLanguage: dbResult.preferred_language || 'en'\n    };\n  } else {\n    item.json = {\n      ...extractedData,\n      isKnownUser: false,\n      userId: null,\n      userName: 'User',\n      userStatus: 'unknown',\n      userPreferredLanguage: 'en'\n    };\n  }\n}\n\nreturn items;",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "set-user-context",
+      "name": "Set_User_Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1120, 300]
+    },
+    {
+      "parameters": {
+        "filePath": "/home/node/FAQ_answers.json",
+        "dataPropertyName": "data"
+      },
+      "id": "read-faq-file",
+      "name": "Read_FAQ_File",
+      "type": "n8n-nodes-base.readBinaryFile",
+      "typeVersion": 1,
+      "position": [1340, 300]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Parse the binary FAQ file data\ntry {\n  const binaryData = $input.first().binary.data;\n  const jsonString = Buffer.from(binaryData.data, 'base64').toString('utf-8');\n  const faqData = JSON.parse(jsonString);\n  \n  // Flatten FAQ structure\n  const allFaqs = [];\n  for (const category of faqData.categories) {\n    for (const faq of category.faqs) {\n      allFaqs.push({\n        category: category.category,\n        question: faq.question,\n        answer: faq.answer\n      });\n    }\n  }\n  \n  // Get the user context from Set_User_Context node\n  const userContext = $node[\"Set_User_Context\"].json;\n  \n  return [{\n    json: {\n      faqDatabase: JSON.stringify(allFaqs),\n      faqCount: allFaqs.length,\n      faqLoaded: true,\n      messageBody: userContext.messageBody,\n      fromNumber: userContext.fromNumber,\n      fromMe: userContext.fromMe,\n      timestamp: userContext.timestamp,\n      session: userContext.session,\n      isKnownUser: userContext.isKnownUser,\n      userId: userContext.userId,\n      userName: userContext.userName,\n      userStatus: userContext.userStatus,\n      userPreferredLanguage: userContext.userPreferredLanguage\n    }\n  }];\n} catch (error) {\n  // Get the user context for error path\n  const userContext = $node[\"Set_User_Context\"].json;\n  \n  return [{\n    json: {\n      faqDatabase: null,\n      faqLoaded: false,\n      faqError: error.message,\n      messageBody: userContext.messageBody,\n      fromNumber: userContext.fromNumber,\n      fromMe: userContext.fromMe,\n      timestamp: userContext.timestamp,\n      session: userContext.session,\n      isKnownUser: userContext.isKnownUser,\n      userId: userContext.userId,\n      userName: userContext.userName,\n      userStatus: userContext.userStatus,\n      userPreferredLanguage: userContext.userPreferredLanguage\n    }\n  }];\n}",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "parse-faq-database",
+      "name": "Parse_FAQ_Database",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1560, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "faq-loaded",
+              "leftValue": "={{ $json.faqLoaded }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "check-faq-loaded",
+      "name": "Check_FAQ_Loaded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [1780, 300]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT user_message, bot_response, language_detected, created_at FROM conversation_history WHERE chat_id = $1 ORDER BY created_at DESC LIMIT 5",
+        "options": {
+          "queryParameters": "={{ { \"values\": [$json.fromNumber] } }}"
+        }
+      },
+      "id": "db-get-history",
+      "name": "DB_Get_History",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [2000, 200],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "postgresql-account",
+          "name": "PostgreSQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Combine user context + FAQ data + conversation history\nconst items = $input.all();\nconst faqData = $node[\"Parse_FAQ_Database\"].json;\nconst historyResults = items[0].json;\n\n// Build conversation history string\nlet conversationHistory = '';\nif (historyResults && Array.isArray(historyResults) && historyResults.length > 0) {\n  // Reverse to show oldest first\n  const sortedHistory = [...historyResults].reverse();\n  conversationHistory = sortedHistory.map((msg, index) => {\n    const timestamp = new Date(msg.created_at).toLocaleString();\n    return `[${timestamp}]\\nUser: ${msg.user_message}\\nBot: ${msg.bot_response}\\nLanguage: ${msg.language_detected || 'unknown'}`;\n  }).join('\\n\\n');\n} else {\n  conversationHistory = 'No previous conversation history.';\n}\n\nfor (const item of items) {\n  item.json = {\n    ...faqData,\n    conversationHistory: conversationHistory,\n    historyCount: (historyResults && Array.isArray(historyResults)) ? historyResults.length : 0\n  };\n}\n\nreturn items;",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "merge-history-context",
+      "name": "Merge_History_Context",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2220, 200]
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\nconst conversationHistory = items[0].json.conversationHistory;\nconst userName = items[0].json.userName;\nconst userPreferredLanguage = items[0].json.userPreferredLanguage;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n7. If ambiguous, request clarification rather than guessing.\n8. Use conversation history to provide contextual responses when relevant.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nConversation History (last 5 messages):\n${conversationHistory}\n\nUser context: ${userName} (preferred language: ${userPreferredLanguage})\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "build-ai-prompt",
+      "name": "Build_AI_Prompt",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2440, 200]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.userPrompt }}",
+        "options": {
+          "systemMessage": "={{ $json.systemPrompt }}"
+        }
+      },
+      "id": "ai-chain",
+      "name": "AI_FAQ_Matcher",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [2660, 200]
+    },
+    {
+      "parameters": {
+        "model": {
+          "mode": "id",
+          "value": "claude-3-5-haiku-20241022"
+        },
+        "options": {
+          "temperature": 0.3,
+          "maxTokensToSample": 1024
+        }
+      },
+      "id": "claude-haiku",
+      "name": "Claude_Haiku",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [2660, 400],
+      "credentials": {
+        "anthropicApi": {
+          "id": "anthropic-account",
+          "name": "Anthropic account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "manual",
+        "assignments": {
+          "assignments": [
+            {
+              "id": "ai-response",
+              "name": "aiResponse",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "chat-id",
+              "name": "chatId",
+              "value": "={{ $node[\"Set_User_Context\"].json.fromNumber }}",
+              "type": "string"
+            },
+            {
+              "id": "response-text",
+              "name": "responseText",
+              "value": "={{ $json.output }}",
+              "type": "string"
+            },
+            {
+              "id": "session",
+              "name": "session",
+              "value": "={{ $node[\"Set_User_Context\"].json.session }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "id": "extract-ai-response",
+      "name": "Extract_AI_Response",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2880, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"session\": $json.session, \"chatId\": $json.chatId, \"text\": $json.responseText } }}",
+        "options": {}
+      },
+      "id": "send-waha-response",
+      "name": "Send_WAHA_Response",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [3100, 200],
+      "credentials": {
+        "headerAuth": {
+          "id": "waha-api-key",
+          "name": "WAHA API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO conversation_history (chat_id, user_id, user_message, bot_response, language_detected, faq_matched, sent, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING id",
+        "options": {
+          "queryParameters": "={{ { \"values\": [$node[\"Set_User_Context\"].json.fromNumber, $node[\"Set_User_Context\"].json.userId, $node[\"Set_User_Context\"].json.messageBody, $json.responseText, 'en', true, true] } }}"
+        }
+      },
+      "id": "db-store-conversation",
+      "name": "DB_Store_Conversation",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [3320, 200],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "postgresql-account",
+          "name": "PostgreSQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "language": "javaScript",
+        "jsCode": "// Build execution log object\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst faqData = $node[\"Merge_History_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\nconst sendResult = $node[\"Send_WAHA_Response\"].json;\n\nfor (const item of items) {\n  const logData = {\n    workflow_execution_id: $workflow.id,\n    node_execution_id: $execution.id,\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId,\n    status: 'success',\n    error_message: null,\n    metadata: {\n      isKnownUser: userContext.isKnownUser,\n      userName: userContext.userName,\n      userPreferredLanguage: userContext.userPreferredLanguage,\n      faqLoaded: faqData.faqLoaded,\n      faqCount: faqData.faqCount,\n      historyCount: faqData.historyCount,\n      messageLength: userContext.messageBody ? userContext.messageBody.length : 0,\n      responseLength: aiResponse.responseText ? aiResponse.responseText.length : 0,\n      sendStatus: sendResult.statusCode || 200,\n      executionTime: new Date().toISOString()\n    }\n  };\n  \n  item.json = logData;\n}\n\nreturn items;",
+        "mode": "runOnceForAllItems"
+      },
+      "id": "build-execution-log",
+      "name": "Build_Execution_Log",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3540, 200]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "INSERT INTO execution_logs (workflow_execution_id, node_execution_id, chat_id, user_id, status, error_message, metadata, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())",
+        "options": {
+          "queryParameters": "={{ { \"values\": [$json.workflow_execution_id, $json.node_execution_id, $json.chat_id, $json.user_id, $json.status, $json.error_message, JSON.stringify($json.metadata)] } }}"
+        }
+      },
+      "id": "db-log-execution",
+      "name": "DB_Log_Execution",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [3760, 200],
+      "onError": "continueRegularOutput",
+      "credentials": {
+        "postgres": {
+          "id": "postgresql-account",
+          "name": "PostgreSQL account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/sendText",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "headerAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"session\": $node[\"Set_User_Context\"].json.session, \"chatId\": $node[\"Set_User_Context\"].json.fromNumber, \"text\": \"We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\" } }}",
+        "options": {}
+      },
+      "id": "send-fallback-error",
+      "name": "Send_Fallback_Error",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2000, 400],
+      "credentials": {
+        "headerAuth": {
+          "id": "waha-api-key",
+          "name": "WAHA API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{ $json.status || 'OK' }}",
+        "options": {}
+      },
+      "id": "webhook-response",
+      "name": "Webhook_Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [3980, 300]
+    }
+  ],
+  "connections": {
+    "Webhook_WAHA_Incoming": {
+      "main": [
+        [
+          {
+            "node": "Extract_Message_Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract_Message_Data": {
+      "main": [
+        [
+          {
+            "node": "Filter_Self_Messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Filter_Self_Messages": {
+      "main": [
+        [
+          {
+            "node": "DB_Check_Known_User",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB_Check_Known_User": {
+      "main": [
+        [
+          {
+            "node": "Set_User_Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set_User_Context": {
+      "main": [
+        [
+          {
+            "node": "Read_FAQ_File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read_FAQ_File": {
+      "main": [
+        [
+          {
+            "node": "Parse_FAQ_Database",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse_FAQ_Database": {
+      "main": [
+        [
+          {
+            "node": "Check_FAQ_Loaded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check_FAQ_Loaded": {
+      "main": [
+        [
+          {
+            "node": "DB_Get_History",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Send_Fallback_Error",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB_Get_History": {
+      "main": [
+        [
+          {
+            "node": "Merge_History_Context",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge_History_Context": {
+      "main": [
+        [
+          {
+            "node": "Build_AI_Prompt",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_AI_Prompt": {
+      "main": [
+        [
+          {
+            "node": "AI_FAQ_Matcher",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI_FAQ_Matcher": {
+      "main": [
+        [
+          {
+            "node": "Extract_AI_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ],
+      "ai_languageModel": [
+        [
+          {
+            "node": "Claude_Haiku",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract_AI_Response": {
+      "main": [
+        [
+          {
+            "node": "Send_WAHA_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_WAHA_Response": {
+      "main": [
+        [
+          {
+            "node": "DB_Store_Conversation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB_Store_Conversation": {
+      "main": [
+        [
+          {
+            "node": "Build_Execution_Log",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build_Execution_Log": {
+      "main": [
+        [
+          {
+            "node": "DB_Log_Execution",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "DB_Log_Execution": {
+      "main": [
+        [
+          {
+            "node": "Webhook_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send_Fallback_Error": {
+      "main": [
+        [
+          {
+            "node": "Webhook_Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2026-02-09T00:00:00.000Z",
+  "versionId": "3"
+}
