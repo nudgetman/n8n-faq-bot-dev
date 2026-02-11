@@ -1,92 +1,179 @@
-# n8n WhatsApp FAQ Bot (Development)
+# n8n WhatsApp FAQ Bot
 
-A multi-language WhatsApp FAQ chatbot built with n8n, WAHA (WhatsApp HTTP API), and Claude Haiku AI for semantic question matching.
+A production-ready, multi-language WhatsApp FAQ chatbot built with **n8n**, **WAHA** (WhatsApp HTTP API), **Claude Haiku** AI, and **PostgreSQL**.
 
 ## Features
 
-- 🤖 **AI-Powered Semantic Matching** - Uses Claude Haiku for intelligent FAQ matching beyond keyword search
-- 🌍 **Multi-Language Support** - Responds in English, Malay, and Simplified Chinese
-- 📊 **PostgreSQL Integration** - User management, conversation history, and execution logging
-- 🔄 **Robust Error Handling** - Retry logic, fallback responses, and failed message queue
-- 📝 **Comprehensive Logging** - Structured JSONB logs for debugging and analytics
+- **AI-Powered Semantic Matching** - Claude Haiku matches questions by intent, not just keywords
+- **Multi-Language Support** - Detects and responds in English, Malay, and Simplified Chinese
+- **PostgreSQL Integration** - User management, conversation history, and structured execution logging
+- **Robust Error Handling** - 3-retry exponential backoff, failed message queue, all failure paths recorded
+- **Persistent WhatsApp Session** - WAHA with Docker volume; no QR re-scan on container restart
+- **Live Webhook Triggering** - WAHA auto-posts incoming WhatsApp messages to n8n
 
 ## Architecture
 
 ```
-WhatsApp (via WAHA) → n8n Webhook → User Validation → FAQ Loading
-                                    ↓
-                              Claude Haiku Semantic Match
-                                    ↓
-                              Response Generation → WAHA Send
-                                    ↓
-                            Database Logging & History
+WhatsApp message
+      │
+      ▼
+WAHA (webhook) → n8n Webhook Trigger
+                        │
+                        ▼
+               Extract Message Data
+                        │
+                        ▼
+               DB: User Validation ──► Unknown user path
+                        │
+                        ▼
+               Load FAQ Knowledge Base
+                        │
+                        ▼
+            Claude Haiku Semantic Match
+                        │
+                        ▼
+             Generate Formatted Response
+                        │
+                        ▼
+          Send via WAHA (3x retry + backoff)
+                        │
+               ┌────────┴────────┐
+            Success            Failure
+               │                  │
+               ▼                  ▼
+        Store History      Store History
+        (sent=true)        (sent=false)
+               │                  │
+               └────────┬─────────┘
+                        ▼
+               Check Send Status
+                        │
+               ┌────────┴────────┐
+            Success            Failure
+               │                  │
+               ▼                  ▼
+        Log: success      Queue failed_messages
+                          Log: failed_after_retries
 ```
+
+**Workflow**: 24 nodes, `whatsapp-faq-bot-phase3.json`
 
 ## Prerequisites
 
 - Docker and Docker Compose
-- WAHA instance (WhatsApp HTTP API)
-- Anthropic API key (for Claude Haiku)
+- WAHA instance ([devlikeapro/waha](https://github.com/devlikeapro/waha))
+- Anthropic API key (Claude Haiku)
 - PostgreSQL 16+
 
 ## Quick Start
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/nudgetman/n8n-faq-bot-dev.git
-   cd n8n-faq-bot-dev
-   ```
+### 1. Clone and configure
 
-2. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your actual credentials
-   ```
+```bash
+git clone https://github.com/nudgetman/n8n-faq-bot-dev.git
+cd n8n-faq-bot-dev
+cp .env.example .env
+# Edit .env with your credentials
+```
 
-3. **Start the services**
-   ```bash
-   docker compose up -d
-   ```
+### 2. Start n8n and PostgreSQL
 
-4. **Access n8n**
-   - URL: http://localhost:5678
-   - Import the workflow from `whatsapp-faq-bot-phase1.json`
+```bash
+docker compose up -d
+```
 
-5. **Configure n8n credentials**
-   - Anthropic API (Claude Haiku)
-   - WAHA Header Auth (`X-Api-Key`)
-   - PostgreSQL connection
+### 3. Initialise the database
+
+```bash
+docker exec -i postgres psql -U faqbot -d faqbot < init.sql
+```
+
+### 4. Start WAHA
+
+```bash
+docker run -d \
+  --name waha \
+  -p 3000:3000 \
+  -v waha_data:/app/.wwebjs_auth \
+  -e WHATSAPP_API_KEY=<your_waha_api_key> \
+  -e WHATSAPP_DEFAULT_ENGINE=WEBJS \
+  -e WHATSAPP_HOOK_URL=http://host.docker.internal:5678/webhook/whatsapp-listener-faq \
+  -e WHATSAPP_HOOK_EVENTS=message \
+  devlikeapro/waha:arm   # or devlikeapro/waha for x86
+
+# Start the WhatsApp session (scan QR on first run)
+curl -X POST http://localhost:3000/api/sessions/start \
+  -H "X-Api-Key: <your_waha_api_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"name": "default"}'
+```
+
+On first run, scan the QR code at `GET http://localhost:3000/api/default/auth/qr`. The session is persisted in the `waha_data` Docker volume — subsequent restarts do not require re-scanning.
+
+### 5. Import the workflow
+
+1. Open n8n at `http://localhost:5678`
+2. Go to **Workflows → Import from file**
+3. Select `whatsapp-faq-bot-phase3.json`
+4. Configure credentials (see below)
+5. **Activate** the workflow
+
+### 6. Configure n8n credentials
+
+| Credential | Type | Notes |
+|---|---|---|
+| Anthropic (Claude Haiku) | Anthropic API | Model: `claude-haiku-4-5` |
+| WAHA | Header Auth | Header: `X-Api-Key`, Value: your WAHA API key |
+| PostgreSQL | Postgres | Host: `postgres`, Port: `5432`, DB: `faqbot` |
 
 ## Project Structure
 
 ```
 .
-├── docker-compose.yaml          # Docker services (n8n + PostgreSQL)
-├── init.sql                     # Database schema initialization
-├── FAQ_answers.json             # FAQ knowledge base
-├── whatsapp-faq-bot-phase1.json # n8n workflow export
-├── n8n-WAHA-Workflow.md         # Complete technical specification
-├── fix-extract-node.md          # Troubleshooting guide
-└── fix-faq-loading.md           # FAQ loading solution
+├── docker-compose.yaml              # Docker services: n8n + PostgreSQL
+├── init.sql                         # Database schema (4 tables)
+├── FAQ_answers.json                 # FAQ knowledge base (JSON)
+├── whatsapp-faq-bot-phase3.json     # n8n workflow export (current, 24 nodes)
+├── whatsapp-faq-bot-phase2-final.json  # Phase 2 snapshot
+├── whatsapp-faq-bot-phase1-validated.json  # Phase 1 snapshot
+├── .env.example                     # Environment variable template
+├── n8n-WAHA-Workflow.md             # Full technical specification / PRD
+├── deploy-phase3.py                 # Phase 3 deployment helper script
+├── fix-phase3-fetch.py              # Phase 3 WAHA fetch fix script
+├── fix-phase3-connections.py        # Phase 3 connection repair script
+├── test-phase2-workflow.sh          # 6 regression tests (Phase 2)
+├── test-phase3-errors.sh            # 6 error-handling tests (Phase 3)
+├── test-workflow.sh                 # Basic smoke tests
+├── verify-phase2-database.sh        # DB verification script
+└── test-logs/                       # Saved test execution logs
 ```
 
 ## Database Schema
 
-The application uses PostgreSQL with 4 main tables:
-- `users` - User profiles and language preferences
-- `conversation_history` - Chat logs with FAQ matching results
-- `failed_messages` - Failed message queue for retry
-- `execution_logs` - Structured JSONB logs for debugging
+Four tables in PostgreSQL (`init.sql`):
 
-## Configuration
+| Table | Purpose |
+|---|---|
+| `users` | Known users, language preferences, first/last seen timestamps |
+| `conversation_history` | Every message: question, AI response, FAQ match, `sent` flag |
+| `failed_messages` | Messages that failed all retries; includes `retry_count` and `failure_reason` |
+| `execution_logs` | Structured JSONB logs per execution for debugging and analytics |
 
-### Environment Variables
+## Environment Variables
 
-See `.env.example` for all required environment variables.
+Copy `.env.example` to `.env` and fill in:
 
-### FAQ Knowledge Base
+| Variable | Description |
+|---|---|
+| `N8N_BASIC_AUTH_USER` | n8n UI login username |
+| `N8N_BASIC_AUTH_PASSWORD` | n8n UI login password |
+| `CLAUDE_API_KEY` | Anthropic API key |
+| `WAHA_API_KEY` | WAHA API key (also set as `WHATSAPP_API_KEY` in WAHA container) |
+| `DB_PASSWORD` | PostgreSQL `faqbot` user password |
 
-The FAQ database is stored in `FAQ_answers.json` with the following structure:
+## FAQ Knowledge Base
+
+`FAQ_answers.json` uses a category/FAQ structure:
 
 ```json
 {
@@ -96,7 +183,7 @@ The FAQ database is stored in `FAQ_answers.json` with the following structure:
       "faqs": [
         {
           "question": "What is a Trademark?",
-          "answer": "..."
+          "answer": "A trademark is a sign capable of distinguishing..."
         }
       ]
     }
@@ -104,14 +191,14 @@ The FAQ database is stored in `FAQ_answers.json` with the following structure:
 }
 ```
 
-## Development
+Claude Haiku performs semantic matching against this file. The FAQ content is English-only; the AI translates responses to match the user's detected language (EN / MS / ZH).
 
-### Testing the Workflow
+## Testing
 
-Use curl to test the webhook:
+### Smoke test via curl
 
 ```bash
-curl -X POST http://localhost:5678/webhook-test/whatsapp-faq \
+curl -X POST http://localhost:5678/webhook/whatsapp-listener-faq \
   -H "Content-Type: application/json" \
   -d '{
     "event": "message",
@@ -125,34 +212,45 @@ curl -X POST http://localhost:5678/webhook-test/whatsapp-faq \
   }'
 ```
 
-### Viewing Logs
+### Regression tests
 
 ```bash
-# n8n logs
-docker compose logs -f n8n
+# Phase 2 regression (6 tests)
+./test-phase2-workflow.sh
 
-# PostgreSQL execution logs
-docker exec postgres psql -U faqbot -d faqbot -c "SELECT * FROM execution_logs ORDER BY created_at DESC LIMIT 10;"
+# Phase 3 error-handling (6 tests)
+./test-phase3-errors.sh
 ```
 
-## Documentation
+### Query logs
 
-- [n8n-WAHA-Workflow.md](n8n-WAHA-Workflow.md) - Complete PRD with node configurations
-- [fix-extract-node.md](fix-extract-node.md) - Webhook data extraction guide
-- [fix-faq-loading.md](fix-faq-loading.md) - FAQ file loading solution
+```bash
+# Recent execution logs
+docker exec postgres psql -U faqbot -d faqbot \
+  -c "SELECT status, created_at, details FROM execution_logs ORDER BY created_at DESC LIMIT 10;"
+
+# Failed messages pending retry
+docker exec postgres psql -U faqbot -d faqbot \
+  -c "SELECT * FROM failed_messages WHERE resolved = false;"
+```
+
+## Development Phases
+
+| Phase | Description | Status |
+|---|---|---|
+| 0 | Infrastructure: Docker, PostgreSQL, n8n | Complete |
+| 1 | Core flow: webhook → Claude Haiku → WAHA reply | Complete |
+| 2 | Database integration: users, history, logging | Complete |
+| 3 | Error handling, retry logic, failure recording, live triggering | Complete |
 
 ## Security Notes
 
-⚠️ **Important Security Practices:**
-- Never commit `.env` files with actual credentials
-- Use environment variables for all sensitive configuration
-- The `n8n_data/` directory contains encryption keys - never commit it
-- WAHA API keys should be stored in n8n credentials manager
+- Never commit `.env` — it is listed in `.gitignore`
+- `n8n_data/` contains the encryption key — never commit it
+- All API keys are stored in the n8n credentials manager, not hardcoded in nodes
+- WAHA authenticates via `X-Api-Key` header (not `Authorization: Bearer`)
+- PostgreSQL credentials use a least-privilege `faqbot` user
 
 ## License
 
-This is a development project for learning and testing purposes.
-
-## Support
-
-For issues and questions, please open a GitHub issue.
+Development project for learning and testing purposes.
