@@ -97,10 +97,10 @@ SELECT
   id,
   workflow_name,
   status,
-  execution_data->>'from_number' as from_number,
-  execution_data->>'user_name' as user_name,
-  execution_data->>'is_known_user' as is_known_user,
-  execution_data->>'faq_matched' as faq_matched,
+  chat_id,
+  execution_data->>'userName' as user_name,
+  execution_data->>'isKnownUser' as is_known_user,
+  execution_data->>'faqLoaded' as faq_loaded,
   created_at
 FROM execution_logs
 ORDER BY created_at DESC
@@ -141,7 +141,7 @@ log "${YELLOW}What to look for:${NC}"
 log "✅ Known user found in 'users' table"
 log "✅ 5+ conversation_history records for known user"
 log "✅ 6+ execution_logs records (one per test)"
-log "✅ JSONB structure includes: from_number, user_name, is_known_user, faq_matched"
+log "✅ JSONB structure includes: userName, isKnownUser, faqLoaded, historyCount"
 log "✅ detected_language: en, ms (Malay test)"
 log "✅ Unknown user has conversation record but no user context"
 log ""
