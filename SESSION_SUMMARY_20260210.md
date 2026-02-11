@@ -1,8 +1,8 @@
-# Session Summary - February 10, 2026
+# Session Summary - February 10-11, 2026
 
-**Time**: ~7:00 AM - 7:30 AM
-**Goal**: Complete Phase 2 testing, fix database write failures, mark Phase 2 complete
-**Status**: Phase 2 Complete
+**Time**: ~7:00 AM Feb 10 - 7:00 PM Feb 11
+**Goal**: Complete Phase 2, start Phase 3 (Error Handling & Resilience)
+**Status**: Phase 2 Complete, Phase 3 In Progress (~70%)
 
 ---
 
@@ -91,17 +91,67 @@ Test 6: Out-of-scope question             -> success (HTTP 200)
 
 ---
 
-## Next Steps
+## Phase 3 Progress (~70% Complete)
 
-### Phase 3: Error Handling & Resilience
-1. Implement retry logic with exponential backoff for WAHA send
-2. Add failed message queue (store in `failed_messages` table)
-3. Create AI fallback responses when Claude API fails
-4. Handle PostgreSQL connection failures gracefully
-5. Handle FAQ file load failures
-6. Configure WAHA webhook for production testing
+### Deployed (24 nodes, up from 20)
+5 new nodes added, 4 modified:
+
+| Node | Type | Purpose | Status |
+|------|------|---------|--------|
+| Send_WAHA_With_Retry | Code | 3 retries with exponential backoff (2s/4s/8s) | Working |
+| Check_Send_Status | If | Routes success/failure paths | Working |
+| Prepare_Failed_Message | Code | Prepares data for failed_messages table | Working |
+| DB_Store_Failed_Message | Postgres | Inserts into failed_messages table | Working |
+| Build_Error_Log | Code | Builds execution log with `failed_after_retries` | Working |
+| Extract_AI_Response (modified) | Code | Handles Claude API errors with fallback | Working |
+| AI_FAQ_Matcher (modified) | - | Added onError: continueRegularOutput | Working |
+| Build_Execution_Log (modified) | Code | Includes retryCount, wahaMessageId | Working |
+| Prepare_Store_Data (modified) | Code | Dynamic `sent` field from actual result | Working |
+
+### Phase 3 Test Results
+| Test | Expected | Actual | Status |
+|------|----------|--------|--------|
+| Normal success (retry node works) | success | success | PASS |
+| WAHA failure + retry exhaustion | failed_after_retries | failed_after_retries | PASS |
+| failed_messages table populated | 1 record | 1 record with error reason | PASS |
+| execution_logs has failed status | failed_after_retries | failed_after_retries with retryCount | PASS |
+| conversation_history sent=false | 1 record | 0 records | FAIL |
+| WAHA recovery after restart | success | Not tested (WAHA session issue) | SKIP |
+
+### Key Discovery: n8n Code Node Sandbox
+- `fetch`, `$helpers`, `$http`, `require('http')` are NOT available
+- `this.helpers.httpRequest()` IS available (the correct method)
+- WAHA uses `X-Api-Key` header (not `Authorization: Bearer`)
 
 ---
 
-**Total Time Invested**: Phase 0: 2h | Phase 1: 4h | Phase 2: 3h = **9 hours**
-**Project Status**: Phase 2 Complete - Ready for Phase 3
+## Remaining Tasks (Next Session)
+
+### Phase 3 Completion (~30 min)
+1. **Fix conversation_history for failed sends** - Restructure flow so Prepare_Store_Data + DB_Store_Conversation run BEFORE Check_Send_Status
+2. **Re-test with WAHA stopped** - Verify both conversation_history (sent=false) and failed_messages are populated
+3. **Test WAHA recovery** - Stop WAHA, send message (fail), restart WAHA, send message (success)
+4. **WAHA container management** - WAHA runs as standalone Docker container (not in docker-compose), needs `docker run` to recreate after stop
+5. **WAHA session** - After container restart, session must be started: `POST /api/sessions/start`
+
+### Optional Improvements
+- Fix `detected_language` hardcoded to 'en' (should come from AI response)
+- Fix `faq_matched` hardcoded to true (should come from AI response)
+- Add WAHA service to docker-compose.yaml for easier management
+
+---
+
+## Important Files
+
+| File | Purpose |
+|------|---------|
+| `whatsapp-faq-bot-phase3.json` | Current workflow (24 nodes) |
+| `deploy-phase3.py` | Main Phase 3 deployment script |
+| `fix-phase3-fetch.py` | Hotfix script (corrected HTTP method) |
+| `test-phase3-errors.sh` | 6-test error handling test suite |
+| `test-phase2-workflow.sh` | 6-test regression suite (all pass) |
+
+---
+
+**Total Time Invested**: Phase 0: 2h | Phase 1: 4h | Phase 2: 3h | Phase 3: 2h = **11 hours**
+**Project Status**: Phase 3 ~70% Complete

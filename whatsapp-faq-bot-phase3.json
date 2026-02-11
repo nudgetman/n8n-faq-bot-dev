@@ -1,0 +1,1733 @@
+{
+    "updatedAt": "2026-02-11T10:56:33.034Z",
+    "createdAt": "2026-02-09T01:43:22.989Z",
+    "id": "F3i-SoCq4WIvV5VTGOOMK",
+    "name": "WhatsApp FAQ Bot - Phase 2 (Database Integration)",
+    "description": null,
+    "active": true,
+    "isArchived": false,
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "whatsapp-listener-faq",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "a072567f-2ae0-4717-ab04-645c25e476fc",
+            "name": "Webhook_WAHA_Incoming",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 2,
+            "position": [
+                -1488,
+                256
+            ],
+            "webhookId": "whatsapp-faq",
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "assignments": {
+                    "assignments": [
+                        {
+                            "id": "message-body",
+                            "name": "messageBody",
+                            "value": "={{ $json.body.payload.body }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "from-number",
+                            "name": "fromNumber",
+                            "value": "={{ $json.body.payload.from }}",
+                            "type": "string"
+                        },
+                        {
+                            "id": "from-me",
+                            "name": "fromMe",
+                            "value": "={{ $json.body.payload.fromMe }}",
+                            "type": "boolean"
+                        },
+                        {
+                            "id": "timestamp",
+                            "name": "timestamp",
+                            "value": "={{ $json.body.payload.timestamp }}",
+                            "type": "number"
+                        },
+                        {
+                            "id": "session",
+                            "name": "session",
+                            "value": "={{ $json.body.session }}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "options": {}
+            },
+            "id": "6f2e64f5-aa85-4dc2-b76e-5584759088f4",
+            "name": "Extract_Message_Data",
+            "type": "n8n-nodes-base.set",
+            "typeVersion": 3.4,
+            "position": [
+                -1264,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict",
+                        "version": 2
+                    },
+                    "conditions": [
+                        {
+                            "id": "not-from-me",
+                            "leftValue": "={{ $json.fromMe }}",
+                            "rightValue": false,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        },
+                        {
+                            "id": "has-message",
+                            "leftValue": "={{ $json.messageBody }}",
+                            "rightValue": "",
+                            "operator": {
+                                "type": "string",
+                                "operation": "notEmpty"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "0033bd1c-97b4-46d0-90e5-7b836762422f",
+            "name": "Filter_Self_Messages",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -1040,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT id, name, status, preferred_language \nFROM users \nWHERE phone_number = $1",
+                "options": {
+                    "queryReplacement": "={{ $json.fromNumber }}"
+                }
+            },
+            "id": "689d5b5c-debe-4bf6-b226-896d0bfd64ea",
+            "name": "DB_Check_Known_User",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                -816,
+                256
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "3expq1dbaLHM9U77",
+                    "name": "PostgreSQL account"
+                }
+            },
+            "onError": "continueRegularOutput",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "const faqDatabase = {\n  \"source\": \"https://www.myipo.gov.my/faq/\",\n  \"title\": \"MyIPO FAQ - Intellectual Property Corporation of Malaysia\",\n  \"categories\": [\n    {\n      \"category\": \"TRADEMARK\",\n      \"faqs\": [\n        {\n          \"question\": \"What is a Trademark?\",\n          \"answer\": \"Trademark means any sign capable of being represented graphically which is capable of distinguishing goods or services of one undertaking from those of other undertakings. Sign includes any letter, word, name, signature, numeral, device, brand, heading, label, ticket, shape of goods or their packaging, colour, sound, scent, hologram, positioning, sequence of motion or any combination thereof. A Trademark is used as a marketing tool to enable customers to choose a product or services in the market place.\"\n        },\n        {\n          \"question\": \"What are the functions of trademarks?\",\n          \"answer\": \"Origin Function \u2013 A trademark indicates the source of goods or services in the market place. Choice Function \u2013 A trademark facilitates consumers in making choices of goods or services. Quality Function \u2013 Consumers have preference to choose a particular trademark for its known quality. Marketing Function \u2013 Trademark act as an effective medium of advertising for producer in marketing their goods or services. Economic Function \u2013 A trademark which is well known with a quality or reputation may be licensed or assigned as an economic asset.\"\n        },\n        {\n          \"question\": \"What is the law governing trademarks?\",\n          \"answer\": \"Trademarks Act 2019 (Act 815) has been enforced on 27th December 2019. Applicable to all applications filed on 27th December onwards and to the existing registered trademarks. Trade Marks Act 1976 (Act 175) is applicable to all pending trademarks filed before 27th December 2019 until to the enforcement of Trademarks Act 2019.\",\n          \"related_documents\": [\n            \"Trademarks Act 2019 (Act 815)\",\n            \"Trade Marks Act 1976 (Act 175)\",\n            \"Trade Mark (Amendment) Act 1994 (Act A881)\",\n            \"Trade Mark (Amendment) Act 2000 (Act A1078)\",\n            \"Trade Mark (Amendment) Act 2002 (Act A1138)\",\n            \"Trademarks Regulations 2019\",\n            \"Guidelines of Trademarks 2019\",\n            \"Guidelines of Trademarks (Transitional Matters) 2019\",\n            \"Trade Marks Regulations 1997\"\n          ]\n        },\n        {\n          \"question\": \"Why is trademark registration important?\",\n          \"answer\": \"Exclusive Right \u2013 Registered trademark owners are conferred exclusive right to use their marks in trade. They also have the right to take legal action for infringement under the Trademarks Act 2019 against others who use their marks without consent. They can also lodge complaints to the Enforcement Division of Ministry of Domestic Trade and Consumer Affairs (MDTCA) for appropriate actions under the Trade Descriptions Act 2011. Registration Conclusive \u2013 Registration notice issued by the Registrar is conclusive evidence of trademark ownership in the court of law.\"\n        },\n        {\n          \"question\": \"Is trademark registration compulsory?\",\n          \"answer\": \"Registration of trademark is indeed important to obtain exclusive rights for purposes of exploitation and commencing infringement actions. However, registration is not compulsory.\"\n        },\n        {\n          \"question\": \"What happens if the trademark is not registered in an action for infringement?\",\n          \"answer\": \"The owner cannot commence any action under the provisions of the Trademarks Act 2019. However, actions may be instituted under the common law principals whereby the trademark owner has a duty to convince the court that the infringing act had mislead the public and the infringing goods or services may be mistaken as his goods or services. This action is very contentious and costly.\"\n        },\n        {\n          \"question\": \"Who may file trademark applications?\",\n          \"answer\": \"Any person who is the owner of trademark using the trademark or proposes to use the trademark may apply for registration in Malaysia. The owner may be an individual, partnership, company or organization.\"\n        },\n        {\n          \"question\": \"When can an application for registration of a trademark be made?\",\n          \"answer\": \"An application for trademark may be filed at any time immaterial of the fact whether the trademark has been used, being used or proposed to be used.\"\n        },\n        {\n          \"question\": \"Are all trademarks registrable?\",\n          \"answer\": \"Not all trademarks are registrable. In general, in order for a trademark to be registrable it cannot contains words or representations prohibited under Section 23 and Section 24 of Trademarks Act 2019 and Regulation 4 of Trademark Regulations 2019.\"\n        },\n        {\n          \"question\": \"What are the filing requirements?\",\n          \"answer\": \"Filing requirements: Complete Application For Registration Of Trademark form (model form is available-Fee code TMA2A-TMA2C) \u2013 2 copies. One copy will be returned to customer for future reference. The trademark size must not exceed 10 cm x 10 cm. The description of the trademark is required if the nature of the trademark is shape of goods, aspect of packaging, scent, hologram, positioning or sequence of motion. For sound mark, the description and provide MP3 of the sound. For colour mark, the description and the Pantone code (PMS) is required. The translation is required for non-roman letters or non-national language or English. The payment is RM950.00 (Fee code TMA2A) per class if the list of goods/services applied for is adopted from the pre-approved list of goods/services and RM1100.00 (Fee Code TMA2B) per class if the list of goods or services is not adopted from the pre-approved list. If the trademark is in series, an additional fee of RM50.00 is applicable for the second and each subsequent trademark (Fee Code TMA2C). The maximum is 6 series. The applicant may apply more than one class in single application (Multiple classes). Payment is made either by cash/cheque/money order/bank draft/credit card and payable to 'Perbadanan Harta Intelek Malaysia'.\"\n        },\n        {\n          \"question\": \"What is the total cost to file a trademark application?\",\n          \"answer\": \"The application can either be single or multiple class. The fee is RM 950.00 per class for pre-approved list of goods/services and RM1100.00 per class without pre-approved list.\"\n        },\n        {\n          \"question\": \"What is the purpose of preliminary advice and search by Registrar?\",\n          \"answer\": \"Before proceeding to file a trademark, it is highly advisable for the intended applicant to conduct a trademark search to avoid any refusal raised against an application which has been filed. Applicant may file an application together with payment of the prescribed fee to the Registrar for preliminary advice and search whether the trademark is prima facie a registrable trademark. The examination will be based on absolute and relative grounds.\"\n        },\n        {\n          \"question\": \"What is expedited examination (EE)?\",\n          \"answer\": \"Expedited examination is introduced to allow trademarks which comply with the Trademarks Act and Regulations to be registered within 6 months and 3 weeks upon filing the prescribed form and fee along with the reason. However, expedited examination not applicable for collective mark, certification mark and sign which are colour, sound, scent, hologram, positioning or sequence of motion.\"\n        },\n        {\n          \"question\": \"What are the reasons that allow to request for expedited examination?\",\n          \"answer\": \"Reasons for requesting expedited examination: The request is in the national or public interest; There are infringement proceedings taking place or evidence showing potential infringement in respect of the trademark applied for under regulation 35 (Application for registration); Registration of the trademark is a condition to obtain monetary benefits from the Government or institutions recognised by the Registrar; or There are other reasonable grounds which support the request.\"\n        },\n        {\n          \"question\": \"What are the main reasons for rejecting an application?\",\n          \"answer\": \"There are two broad grounds for rejection of trademark applications. These are 'absolute grounds' and 'relative grounds'.\"\n        },\n        {\n          \"question\": \"What is the duration of a trademark protection?\",\n          \"answer\": \"The period of protection is 10 years, renewable for a period of every 10 years thereafter.\"\n        },\n        {\n          \"question\": \"Does Malaysian registration for trademark give protection abroad?\",\n          \"answer\": \"No, trademark protection is territorial in nature. The owner has to seek registration in each country either via national route or Madrid route.\"\n        },\n        {\n          \"question\": \"How does one secure trademark protection abroad?\",\n          \"answer\": \"Malaysia has acceded to the Madrid Protocol, an international trademark registration system administered by the World Intellectual Property Organization (WIPO), and has come in to force on 27th December 2019. Hence, trademark owners in Malaysia can register their trademark through the Madrid system to get protection abroad. By filing one international application through the Intellectual Property Corporation of Malaysia (MyIPO) in one language, and paying fees in one currency, a trademark owner can obtain protection in multiple member countries at a cheaper and easier cost without having to deal with each the country you want to explore.\"\n        },\n        {\n          \"question\": \"Is it necessary for an applicant to appoint a registered trademark agent for purposes of filing an application?\",\n          \"answer\": \"A local applicant may file a trademark application directly himself. A foreign applicant must file an application through a registered trademark agent.\"\n        },\n        {\n          \"question\": \"Who is a registered trademark agent?\",\n          \"answer\": \"A registered trademark agent may be an individual, firm or company who has been registered in the Register of Trademarks Agent. They are appointed by the applicants to act on their behalf in obtaining trademark registration.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"PATENT\",\n      \"faqs\": [\n        {\n          \"question\": \"What is patent?\",\n          \"answer\": \"A patent is an exclusive right granted for an invention, which is a product or a process that provides a new way of doing something, or offers a technical solution to a problem. A patent provides protection for a period of 20 years from the date of filing.\"\n        },\n        {\n          \"question\": \"What is a utility innovation?\",\n          \"answer\": \"A utility innovation is an exclusive right granted for a 'minor' invention. Utility innovations are protected for an initial period of 10 years which may be extended for another two 5-year terms, providing a total protection period of 20 years.\"\n        },\n        {\n          \"question\": \"What is the law governing patents in Malaysia?\",\n          \"answer\": \"The provisions of the Patents Act 1983, Patents Regulations 1986, Directive of Patents Act 1983 and Patents Regulations 1986 and Practice Notice 1/2022 form the regulatory framework for the law of patents in Malaysia.\"\n        },\n        {\n          \"question\": \"Can I file my invention in foreign countries without filing the same in Malaysia?\",\n          \"answer\": \"Before filing patent application outside Malaysia, the owner and/or inventor who is a resident of Malaysia have to obtain Written Authority from the Patent Registration Office. The application can be made by filing Form 1B with prescribed fee and briefly describe the invention. Failure to obtain a written authority, the applicant considered has commit an offence under section 62A of the Act.\"\n        },\n        {\n          \"question\": \"What rights does patent owner have?\",\n          \"answer\": \"A patent owner has the right to use the patented invention, or may license to other parties to use the invention, or sell the right of the invention to someone else who will then become the new owner of the patent.\"\n        },\n        {\n          \"question\": \"Is it possible to find out if the invention is new before the applicant applies for protection?\",\n          \"answer\": \"Yes. A search can be conducted at the Public Search Room, MyIPO or via internet access to IP Online on earlier Malaysian patent documents.\"\n        },\n        {\n          \"question\": \"Can the applicant get protection after the invention is made public before filing a patent application?\",\n          \"answer\": \"Yes, provided that the applicant files an application within 12 months of the disclosure.\"\n        },\n        {\n          \"question\": \"What is the total cost to file a patent and utility innovation application?\",\n          \"answer\": \"The total cost for patent application \u2013 RM 1,390 and for utility innovation \u2013 RM1,240\"\n        },\n        {\n          \"question\": \"Where can the applicant seek assistance in preparing patent application?\",\n          \"answer\": \"The applicant could seek services from a registered patent agent for preparation of a patent application.\"\n        },\n        {\n          \"question\": \"Are all patent applications treated as confidential?\",\n          \"answer\": \"Yes, all patent applications are confidential until after 18 months from the priority date or filing date of the application.\"\n        },\n        {\n          \"question\": \"What is the different between substantive examination and modified substantive examination?\",\n          \"answer\": \"Substantive examination carried out by the Patent Examiner to examine technical contents of your patent application. The Examiner shall search documents available worldwide relating to the invention in order to determine whether your application fulfil the substantive requirements under the Patent Act and Regulations. Modified substantive examination is an effective short-cut to process a patent application through to grant by making as much use as possible of any search or examination already carried out by a foreign Patent Office that is Australia, United Kingdom, United States of America, Japan and Korea on a corresponding patent application for the same invention.\"\n        },\n        {\n          \"question\": \"Can I request for Expedited Examination?\",\n          \"answer\": \"Yes, request for approval of expedited examination (Form 5H) can be filed provided that the applicant has filed request for substantive examination (Form 5) or request for modified substantive examination (Form 5A).\"\n        },\n        {\n          \"question\": \"What is a Third Party Observation (TPO)?\",\n          \"answer\": \"Third Party Observation allow any person to make observation on any matter relating to patentability of a patent application and the application shall include the reason for such observation. The application has to be filed within three months from the date of publication of a patent application in IP Official Journal.\"\n        },\n        {\n          \"question\": \"Can the applicant take a court action against an infringer while his application is still pending?\",\n          \"answer\": \"A court action cannot be taken while an application is still pending. Nevertheless, a court action can be taken as soon as the patent is granted. The protection of a patent commences from the date of filing.\"\n        },\n        {\n          \"question\": \"Does MyIPO allow the owner of a patent to make payment of all the annual fees for the entire duration of his patent in a lump sum after the grant of a patent?\",\n          \"answer\": \"The owner of a patent is allowed to make the payment of annual fee in lump sum for two years or more but not more than five years.\"\n        },\n        {\n          \"question\": \"What happens after the patent expires?\",\n          \"answer\": \"Once a patent expires, the owner no longer holds the exclusive rights to the invention.\"\n        },\n        {\n          \"question\": \"How can an applicant get protection for his invention in other countries?\",\n          \"answer\": \"There are two ways in which an invention can be protected in other countries. An applicant can either apply directly to the relevant countries, or use the international patent application system (Patent Cooperation Treaty).\"\n        },\n        {\n          \"question\": \"What is the Patent Cooperation Treaty (PCT)?\",\n          \"answer\": \"The PCT is an international treaty, administered by World Intellectual Property Organization (WIPO), with more than 155 Paris Convention member countries. The PCT facilitates the filing of an international patent application of an invention in other countries by filing a single application.\"\n        },\n        {\n          \"question\": \"Where can an international patent application be filed?\",\n          \"answer\": \"An international patent application can be filed at MyIPO which acts as a Receiving Office (RO).\"\n        },\n        {\n          \"question\": \"What are the costs for filing an international patent application?\",\n          \"answer\": \"There are three types of fees for filing an international application: (i) international filing fee; (ii) international search fee; and (iii) transmittal fee. Applicant would have to pay only a single set of fees, payable in Malaysian Ringgit.\"\n        },\n        {\n          \"question\": \"What is the timeline for the international application to enter national phase of Designated Office?\",\n          \"answer\": \"An international patent application has about 30 months from the filing date, prior to that application to enter into the national phase [Designated Office (DO)]. The application will be published by International Bureau (WIPO) after 18 months from the priority date together or without international search report.\"\n        },\n        {\n          \"question\": \"What is an international search?\",\n          \"answer\": \"An international search is a high quality search of the relevant patent documents and other technical literatures. The International Search Authority (ISA) issues an international search report on the novelty, inventive step and industrial applicability of the invention.\"\n        },\n        {\n          \"question\": \"What is an international publication?\",\n          \"answer\": \"An international publication is publication of the content of the international patent application to the world together with or without the international search report by WIPO, 18 months after the priority date.\"\n        },\n        {\n          \"question\": \"What is an international preliminary examination?\",\n          \"answer\": \"An international preliminary examination is an examination on the patentability of an invention. The report provides a written opinion on the criteria for patentability of each claim where examination is carried out.\"\n        },\n        {\n          \"question\": \"When and how does an international patent application enter the national phase in Malaysia?\",\n          \"answer\": \"An applicant has to apply for entry into the national phase before the expiry of the 30 months from the priority date. The applicant shall fulfill the requirements for entering the national phase such as paying the national entry fees and submitting a copy of the international application in English language.\"\n        },\n        {\n          \"question\": \"What are the advantages of the PCT?\",\n          \"answer\": \"The Patent Cooperation Treaty (PCT) assists applicants in seeking patent protection internationally for their inventions, helps patent offices with their patent granting decisions, and facilitates public access to a wealth of technical information relating to those inventions. By filing one international patent application under the PCT, applicants can simultaneously seek protection for an invention in a large number of countries.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"PATENT COOPERATION TREATY (PCT)\",\n      \"faqs\": [\n        {\n          \"question\": \"Can I file an international application in Malaysia?\",\n          \"answer\": \"Yes, any Malaysian national or resident can file an international application in Malaysia at the Intellectual Property Corporation of Malaysia (MyIPO) as a receiving office.\"\n        },\n        {\n          \"question\": \"What are the contents of the international application?\",\n          \"answer\": \"An international application shall contain: i. a request (Form PCT/RO/101), ii. a description, iii. one or more claims, iv. one or more drawings (if any), and v. an abstract\"\n        },\n        {\n          \"question\": \"What are the requirement to obtain an international filing date?\",\n          \"answer\": \"The requirement to obtain an international filing date are as following: a. The applicant must be a national or a resident of Malaysia, b. The language of the international application must be in English, c. The international application must contain: i. an indication that it is intended as an international application, ii. a request which has the effect of making all possible designation, iii. the name of the applicant, iv. a description of the invention, v. a claim or claims\"\n        },\n        {\n          \"question\": \"What are the fees payable?\",\n          \"answer\": \"The following fees are payable for an international application filed at MyIPO: a. Transmittal Fee (MyIPO), b. International Filing Fee (International Bureau), c. Search Fee (International Searching Authority)\"\n        },\n        {\n          \"question\": \"Which International Searching Authorities can be specified/chosen by the applicant to conduct the international search for international application?\",\n          \"answer\": \"a. Korean Intellectual Property Office, b. Australian Patent Office, c. European Patent Office\"\n        },\n        {\n          \"question\": \"Beside MyIPO, is there any other office where a Malaysian national or resident can file his international application?\",\n          \"answer\": \"A Malaysian national or resident can file his international application with the International Bureau of WIPO which acts as a receiving office for nationals and residents of all PCT Contracting States.\"\n        },\n        {\n          \"question\": \"How can I file my international application (PCT)?\",\n          \"answer\": \"PCT application can be filed directly to MyIPO or via postal delivery.\"\n        },\n        {\n          \"question\": \"Where can I obtain additional information on PCT?\",\n          \"answer\": \"For further information on PCT, you can visit WIPO website.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"INDUSTRIAL DESIGN\",\n      \"faqs\": [\n        {\n          \"question\": \"What is an industrial design?\",\n          \"answer\": \"An industrial design is the overall appearance of an article or a product. The design may consist of three dimension features such as the shape and configuration of an article, or two dimension features, such as pattern and ornamentation. The design features must be applied to an article by an industrial process or means of which, the features in the finished article gives it a unique appearance.\"\n        },\n        {\n          \"question\": \"What is non-registrable design?\",\n          \"answer\": \"It does not have a clear aesthetic appearance. It is a method or principle of construction. Designs features dictated solely by function. Integral parts which consist features that dependent upon the appearance of another article. Differs only in immaterial details or in features commonly used in the relevant trade (trade variants). The designs those are contrary to public order or morality.\"\n        },\n        {\n          \"question\": \"How to file an application for registration of an industrial design?\",\n          \"answer\": \"Requirement to file an application for registration: (i) A completed application form ID Form 1 in English or RBP 1 in Malay. (ii) Six set of representations of the article either photograph or drawing. (iii) A statement of novelty in respect of the industrial design to which the design is applied. However for registering wallpaper, lace or textile, the statement of novelty can be attach separately in the following page. (iv) Payment in full of the appropriate filing fee. (v) Statement justifying applicant's right should be filed if the applicant is not an author.\"\n        },\n        {\n          \"question\": \"When an application should be filed?\",\n          \"answer\": \"As claims are based on rules of 'first to file', filing of an industrial design should be made at the earliest possible time or before an article is disclosed to the public. Prior disclosure will eliminate the novelty of the design. Extreme care should be exercised to ensure secrecy of the design.\"\n        },\n        {\n          \"question\": \"Who can apply for design registration?\",\n          \"answer\": \"Only the owner of the design may apply to register the design. The owner may authorize an agent to file an application on his behalf. Where an applicant's ordinary residence or principal place of business is outside Malaysia, the applicant shall appoint an agent registered in the Register of Industrial Designs Agent.\"\n        },\n        {\n          \"question\": \"What is the duration for registering an industrial design?\",\n          \"answer\": \"An application will be registered within 8 months from the date on which a completed application form, documents and prescribed fees are received. The duration could be extended to 14 months due to non compliance of requirements such as incomplete documents and fees not paid.\"\n        },\n        {\n          \"question\": \"What is the duration for protection?\",\n          \"answer\": \"A registered industrial design is given an initial protection period of 5 years from the date of filing and is extendable for a further four consecutive terms of 5 years each. The maximum protection period is 25 years.\"\n        },\n        {\n          \"question\": \"What qualifies an industrial design for registration?\",\n          \"answer\": \"To be eligible for registration, an industrial design must be new at the date an application for registration is filed. A design is considered new only if it has not been made available or disclosed to the public in any way whatsoever in Malaysia or elsewhere (worldwide) before the filing date of application. It also should not be on the record of the Industrial Design Register.\"\n        },\n        {\n          \"question\": \"What rights does a registered design confer?\",\n          \"answer\": \"The owner of a registered design has the exclusive right to make, import or sell or hire out any article to which the design has been applied. Other users should obtain the consent of the rightful owner before using the design. The owner of a registered design has the right to take legal action against an infringer within 5 years from the act of infringement.\"\n        },\n        {\n          \"question\": \"How to claim priority date of an earlier foreign application?\",\n          \"answer\": \"The applicant needs to make the claim when filing the application where the date of priority and country should be stated. Priority date should be claimed within 6 months from the foreign filing. Priority documents and their translations should be furnished as evidence.\"\n        },\n        {\n          \"question\": \"What can be done if someone made copies or infringed my industrial design?\",\n          \"answer\": \"The owner of a registered industrial design has the rights to take legal action. A registration certificate issued by the Industrial Design Registry is recognized by the Court as evidence of ownership. The owner can take legal action pursuant to the Industrial Design Act 1996 or under the Trade Description Act 1972.\"\n        },\n        {\n          \"question\": \"When will an Industrial Design be manufacture or sell?\",\n          \"answer\": \"At anytime time after the application has been filed. Applicants may also exploit their industrial design in the foreign markets. However they would have to obtained protection in relevant countries.\"\n        },\n        {\n          \"question\": \"Are registered designs made public?\",\n          \"answer\": \"Registered designs are open to public inspection and details of the registration are recorded in the Register of Industrial Designs and published in the IP Official Journal.\"\n        },\n        {\n          \"question\": \"Does one have to register an industrial design to get a protection?\",\n          \"answer\": \"Under industrial designs law, there is no protection without registration. An industrial design need to be registered to be eligible for protection. The owner of a registered industrial design has the exclusive rights over his industrial design.\"\n        },\n        {\n          \"question\": \"How extensive is industrial design protection?\",\n          \"answer\": \"An industrial design registered in Malaysia is only protected in Malaysia. In order to have your design protected in other countries who are members of the Paris Convention and to claim priority in Malaysia, application for registration will have to be filed within 6 months from the date of filing in Malaysia.\"\n        },\n        {\n          \"question\": \"Where should I file my application?\",\n          \"answer\": \"Applications may be filed at MyIPO Headquarters or branch offices in Sabah and Sarawak.\",\n          \"office_locations\": {\n            \"sabah\": {\n              \"address\": \"Intellectual Property Corporation of Malaysia, 6th Floor, Blok C, 49, Jalan Karamunsing, Bangunan KWSP, PO BOX 8068, 88999 Kota Kinabalu, Sabah\",\n              \"phone\": \"+6088 254 524\",\n              \"fax\": \"+6088 257 046\"\n            },\n            \"sarawak\": {\n              \"address\": \"Intellectual Property Corporation of Malaysia, Lot 9936, (Sub Lot 5), 3rd Floor, Queen's Court, 93000 Kuching, Sarawak\",\n              \"phone\": \"+6082 459 075 / +6082 459 076\",\n              \"fax\": \"+6082 455 052\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"category\": \"GEOGRAPHICAL INDICATION\",\n      \"faqs\": [\n        {\n          \"question\": \"Definition of Geographical Indications\",\n          \"answer\": \"A geographical indication (GI) is a sign contain one or more words and this sign used on products that have a specific geographical origin and possess qualities, reputation or other characteristics that are due to place of origin, country or territory, or a region or locality.\"\n        },\n        {\n          \"question\": \"Who may apply?\",\n          \"answer\": \"(a) any person who is carrying on an activity as a producer in the geographical area with respect to the goods and includes an association of such persons; or (b) a competent authority.\"\n        },\n        {\n          \"question\": \"What are the advantages to obtaining registration for a geographical indication?\",\n          \"answer\": \"A registered proprietor of a geographical indication in relation to the goods for which the geographical indication is registered has the right to\u2014(a) use the geographical indication; and (b) authorize other persons to use the geographical indication (c) the registered proprietor has the right to act, or obtain relief or remedies for infringement of his geographical indication.\"\n        },\n        {\n          \"question\": \"What is the difference between a geographical indication and a trademark?\",\n          \"answer\": \"'Geographical indication' means an indication which may contain one or more words which identifies any goods as originating in a country or territory, or a region or locality in that country or territory, where a given quality, reputation or other characteristic of the goods is essentially attributable to its geographical origin; 'Trademark' means any sign capable of being represented graphically which is capable of distinguishing goods or services of one undertaking from those of other undertaking.\"\n        },\n        {\n          \"question\": \"What distinguishes the difference between the Variant Geographical Indications and the Homonymous Geographical Indications?\",\n          \"answer\": \"Variant Geographical Indications refers to a geographical indication that is different from the original geographical indication that has been registered. The difference in question means any variant of a geographical indication includes any translation, transliteration or other variation of the indication. Homonymous geographical indications (GI) are those that are spelled or pronounced alike, but which identify products contain quality, reputation or other characteristic originating in different places, usually in different countries, territories, or a region. In principle, these indications should coexist, but such coexistence may be subject to certain conditions.\"\n        },\n        {\n          \"question\": \"How to Register?\",\n          \"answer\": \"The applicant needs to submit a registration form, namely the GIA1 form and submit a payment of RM 250.00.\"\n        },\n        {\n          \"question\": \"Can geographical indication applications be made in a different of classes of goods?\",\n          \"answer\": \"Applicants can only apply for items that are in the same class. If the applicant wishes to apply to register a geographical indication for items in a different class, the applicant must submit a different application form.\"\n        },\n        {\n          \"question\": \"What is the total filing fee for applying geographical indication?\",\n          \"answer\": \"The total fee for geographical indication applications is RM 700.00 for one application per class. It must be paid twice, RM 250.00 when the application is submitted and RM 450.00 for Notice of Acceptance.\"\n        },\n        {\n          \"question\": \"If the applicant wishing to apply for the geographical indication is from abroad, how's the procedure?\",\n          \"answer\": \"Applicants from abroad can apply to apply for the geographical indication in Malaysia by submitting the GIA1 application form and appoint an agent of geographical indication in Malaysia by applying the GIA27 form.\"\n        },\n        {\n          \"question\": \"What could have caused a geographical indication to be refused?\",\n          \"answer\": \"The Registrar shall refuse to register a geographical indication if\u2014(a) the geographical indication does not correspond to the meaning of 'geographical indication' as defined in section 2; (b) the geographical indication identifies goods that do not fall within any of the categories of goods as determined by the Registrar; (c) the geographical indication consists exclusively of an indication which is identical with the term customary in the common language as the common name of any goods in Malaysia if registration is sought in relation to the goods; (d) the geographical indication is contrary to public order or morality; (e) the geographical indication is not or has ceased to be protected in its country or territory of origin; (f) the goods does not originate in the country, region or locality indicated in the application for the registration of geographical indication; or (g) the geographical indication in relation to the goods is of such a nature which may mislead the public as to the true place of origin of the goods\"\n        },\n        {\n          \"question\": \"What class and list of goods may be registered as geographical indication\",\n          \"answer\": \"Class 1: Wine and Spirit (Wine, Spirit). Class 2: Prepared foodstuff and beverages (Coffee, Tea, Cocoa, Beer, Rice, Bread, Pastries, Confectionery, Chocolate, Salt, Spices and condiments, Preserved herbs, Edible oils, Sugar, Sweetener). Class 3: Agricultural, aquacultural, horticultural products (Vegetable, Vegetable product, Fruit, Fruit product, Meat, Meat product, Horticultural comestible product which is prepared for consumption, Raw and unprocessed grains, Raw and unprocessed seeds, Flowers and parts of flowers). Class 4: Handicraft. Class 5: Textiles (other than handicraft)\"\n        },\n        {\n          \"question\": \"How long is the period of protection given to a registered geographical indication?\",\n          \"answer\": \"A registered geographical indication is given ten years of protection from the date of filling and is renewable for every ten years.\"\n        },\n        {\n          \"question\": \"If any person aggrieved with by a registration of the geographical indication, what actions can be taken by that person?\",\n          \"answer\": \"Any person aggrieved by a decision of the Registrar in relation to the following matters may apply to the Court to cancel registration of the geographical indication in relation to. A notification through the GIA13 Form (RM 300.00) must be sent to the Office of The Registrar of Geographical Indication\"\n        },\n        {\n          \"question\": \"What is the need to register the goods for example traditional goods under geographical indication, if it is not commercialized?\",\n          \"answer\": \"Although the goods is not commercialized, registration as a geographical indication may protect, not only the goods but the information related to the goods for example processing step and or other specific information, so that the valuable information is not misused or modified until it loses the authenticity of the goods.\"\n        },\n        {\n          \"question\": \"What is the protection status for unregistered geographical indication?\",\n          \"answer\": \"Unregistered geographical indication is not protected under the Geographical Indication Act 2022.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"COPYRIGHT\",\n      \"faqs\": [\n        {\n          \"question\": \"What is copyright?\",\n          \"answer\": \"Copyright is the exclusive right given by law for a determinable time period to the author of the work to control the use of the work in Malaysia.\"\n        },\n        {\n          \"question\": \"Which Act governs the protection of copyright in Malaysia?\",\n          \"answer\": \"Copyright protection is governed by the Copyright Act 1987.\"\n        },\n        {\n          \"question\": \"What works get copyright protection?\",\n          \"answer\": \"The following works are protected: (i) Literary works;\"\n        },\n        {\n          \"question\": \"Does Malaysia have a registration system for copyright?\",\n          \"answer\": \"There is no registration for copyright in Malaysia. The work is protected automatically upon creation.\"\n        },\n        {\n          \"question\": \"What are the ways to prove ownership of copyright?\",\n          \"answer\": \"To prove ownership of copyright, the owner can either: (i) Make a Statutory Declaration in accordance with the Statutory Declaration Act 1960; or (ii) Self address the work in a sealed envelope.\"\n        },\n        {\n          \"question\": \"What are the qualifications for protection of copyright?\",\n          \"answer\": \"(i) Sufficient effort has been expanded to make the work original in character; (ii) The work has been written down, recorded or otherwise reduced into material form; (iii) The author is a qualified person; and (iv) The work is made in Malaysia or the work is first published in Malaysia.\"\n        },\n        {\n          \"question\": \"How owns copyright?\",\n          \"answer\": \"Ownership of copyright is dependent on the following: (i) The work is produced under a contract of service \u2013 Copyright is owned by the employer. (ii) The work is produced under a contract for service \u2013 Copyright is owned by the author. (iii) Commissioned work \u2013 Copyright is owned by the person who commissioned the work.\"\n        },\n        {\n          \"question\": \"Can copyright be transferred?\",\n          \"answer\": \"Copyright is transferable by assignment, testamentary disposition and by operation of law.\"\n        },\n        {\n          \"question\": \"Other than the commercial right of the owner and author of the work, what other right is given to the author of the work?\",\n          \"answer\": \"The Copyright Act 1987 grants moral right to the author of the works.\"\n        },\n        {\n          \"question\": \"What types of moral right are given by the Act?\",\n          \"answer\": \"Two type of moral right are given:\"\n        },\n        {\n          \"question\": \"What right can be utilized by the owner of copyright for infringement of moral right?\",\n          \"answer\": \"The owner can sue inter alia for statutory damages and injunction.\"\n        },\n        {\n          \"question\": \"What is the duration for copyright protection?\",\n          \"answer\": \"(i) For literary, music and artistic works, copyright subsist during the life of the author and 50 years after the death; (ii) For sounds recording, films and broadcasts, copyright subsist 50 years from the year following the publication of the work; and (iii) For published edition, copyright subsist 50 years from the year following the year of edition was first published.\"\n        },\n        {\n          \"question\": \"What are the exclusive rights of the owner?\",\n          \"answer\": \"The copyright owner has the exclusive right to control the whole or substantial part of the work especially: (i) The reproduction in any material form (including making photocopies, recording and others); (ii) The communication to the public; (iii) The performance, showing or playing to the public; (iv) The distribution of copies to the public by sale or other transfer pf ownership; and (v) The commercial rental to the public.\"\n        },\n        {\n          \"question\": \"What acts amount to infringement of copyright?\",\n          \"answer\": \"The copyright in a work infringed when a person, not being owner of the copyright, and without license from the owner, does or authorizes any of the following acts: (i) Reproduced in any material form, performs, shows or plays or distributes to the public. (ii) Communicates by cable or broadcast of the whole works or a substantial part thereof either in its original or derivative form; (iii) Import any article into Malaysia for the purpose of trade or financial gains; (iv) Make for sale or hire any infringing copy; (v) Sells, lets for hire or by way of trade, exposes of offers for sale or hire any infringing copy; (vi) Distributes infringing copies; (vii) Possesses, otherwise then for his private and domestic use, any infringing copy; (viii) By way of trade, exhibits in public any infringing copy; (ix) Imports into Malaysia, otherwise than for his private and domestic use, an infringing copy; (x) Make or has in his possession any contrivance used or intended to be used for the purpose of making infringing copy; or (xi) Causes the work to be performed in public.\"\n        },\n        {\n          \"question\": \"What are the exceptions to the exclusive right granted by the Copyright Act 1987 to the user of the work?\",\n          \"answer\": \"Usage of the work by way of fair dealing for the following purpose accompanied by an acknowledgement of the title of the work and authorship is allowed: (i) non-profit research; (ii) private study; and (iii) Review or the reporting of current event.\"\n        },\n        {\n          \"question\": \"Who is responsible for enforcement of copyright?\",\n          \"answer\": \"The Minister of Domestic Trade, Cooperative and Consumerism (Enforcement Division) and The Royal Malaysia Police are responsible for enforcement of the law.\"\n        },\n        {\n          \"question\": \"What is Collective Management Organisation (CMO)?\",\n          \"answer\": \"A Collective Management Organisation (CMO) is a body empowered by the owner to collect payment/royalty on behalf of the copyright owner.\"\n        },\n        {\n          \"question\": \"Does the Government of Malaysia recognize these Collective Management Organisation (CMO)?\",\n          \"answer\": \"These Collective Management Organisation (CMO) are recognized by the Government of Malaysia.\"\n        },\n        {\n          \"question\": \"What is the right given by the Collective Management Organisation (CMO) to the parties applying for a license?\",\n          \"answer\": \"The Collective Management Organisation (CMO) can grant a license to play the copyright work in public to the applicant.\"\n        },\n        {\n          \"question\": \"What dose the Collective Management Organisation (CMO) do with the royalty collected?\",\n          \"answer\": \"The royalty is distributed by the society to the copyright owner each year.\"\n        },\n        {\n          \"question\": \"Does the Government determine the rate of the royalty collected by the Collective Management Organisation (CMO)?\",\n          \"answer\": \"The government does not control or is government involved in determining the rate. It is determined contractually\"\n        },\n        {\n          \"question\": \"Why is the Government not involved?\",\n          \"answer\": \"Copyright is a private right belonging to the right holder.\"\n        },\n        {\n          \"question\": \"If there is a dispute between the owner and the Collective Management Organisation (CMO), where are the avenues available to the owner?\",\n          \"answer\": \"The dispute can be settled via assistance from the Copyright Tribunal.\"\n        },\n        {\n          \"question\": \"What is meant by performance right?\",\n          \"answer\": \"Performers' rights are right granted to those taking part in a live public performance.\"\n        },\n        {\n          \"question\": \"What is the duration of protection for performers right?\",\n          \"answer\": \"Protection is granted for a period of 50 years from the date of the performance.\"\n        },\n        {\n          \"question\": \"What are the qualifications for protection performers?\",\n          \"answer\": \"Performers right shall subsist in every live performance of which the performer is:\"\n        }\n      ]\n    }\n  ],\n  \"contact_info\": {\n    \"email\": \"ipmalaysia@myipo.gov.my\"\n  },\n  \"metadata\": {\n    \"extracted_date\": \"2026-01-28\",\n    \"note\": \"This JSON file contains all FAQ information from the MyIPO website organized by categories. Some answers may be incomplete in the source HTML (e.g., list of protected works in copyright section).\"\n  }\n};\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    faqDatabase: faqDatabase,\n    faqLoaded: true,\n    faqError: null\n  }\n}));\n"
+            },
+            "id": "c7c808c1-a8fe-4d76-b3a5-20640bbd3d05",
+            "name": "Parse_FAQ_Database",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -368,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "faq-loaded",
+                            "leftValue": "={{ $json.faqLoaded }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "b432ea69-8763-4451-835e-e9b2a7b7b94d",
+            "name": "Check_FAQ_Loaded",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                -144,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "executeQuery",
+                "query": "SELECT user_message, bot_response, detected_language, created_at \nFROM conversation_history \nWHERE chat_id = $1 \nORDER BY created_at DESC \nLIMIT 5",
+                "options": {
+                    "queryReplacement": "={{ $json.fromNumber }}"
+                }
+            },
+            "id": "a91b1de6-37dc-4efd-9a1d-031efe1ec34c",
+            "name": "DB_Get_History",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                80,
+                128
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "3expq1dbaLHM9U77",
+                    "name": "PostgreSQL account"
+                }
+            },
+            "onError": "continueRegularOutput",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Combine user context + FAQ data + conversation history\nconst items = $input.all();\nconst faqData = $node[\"Parse_FAQ_Database\"].json;\n\n// Build conversation history string from all returned rows\nlet conversationHistory = '';\nlet historyCount = 0;\n\nif (items.length > 0 && items[0].json && items[0].json.user_message) {\n  // DB_Get_History returned actual rows\n  const historyRows = items.map(item => item.json);\n  historyCount = historyRows.length;\n  const sortedHistory = [...historyRows].reverse();\n  conversationHistory = sortedHistory.map((msg) => {\n    const timestamp = msg.created_at ? new Date(msg.created_at).toLocaleString() : 'unknown';\n    return `[${timestamp}]\\nUser: ${msg.user_message || ''}\\nBot: ${msg.bot_response || ''}\\nLanguage: ${msg.detected_language || 'unknown'}`;\n  }).join('\\n\\n');\n} else {\n  conversationHistory = 'No previous conversation history.';\n}\n\n// CRITICAL: Return exactly 1 item to prevent item index mismatch downstream\nreturn [{\n  json: {\n    ...faqData,\n    conversationHistory: conversationHistory,\n    historyCount: historyCount\n  }\n}];"
+            },
+            "id": "f564d769-c545-4129-afca-791a65d8db44",
+            "name": "Merge_History_Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                304,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\nconst conversationHistory = items[0].json.conversationHistory;\nconst userName = items[0].json.userName;\nconst userPreferredLanguage = items[0].json.userPreferredLanguage;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n   - Please use urban Malay to respond to the user if the user speaks in Malay\n7. If ambiguous, request clarification rather than guessing.\n8. Use conversation history to provide contextual responses when relevant.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nConversation History (last 5 messages):\n${conversationHistory}\n\nUser context: ${userName} (preferred language: ${userPreferredLanguage})\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;"
+            },
+            "id": "d29ea9ac-61f4-4b76-89d3-52a53b774081",
+            "name": "Build_AI_Prompt",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                528,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "={{ $json.userPrompt }}"
+            },
+            "id": "d7c3f092-b395-44ce-90be-92f4aec4cc60",
+            "name": "AI_FAQ_Matcher",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.4,
+            "position": [
+                752,
+                128
+            ],
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "model": {
+                    "__rl": true,
+                    "value": "claude-haiku-4-5-20251001",
+                    "mode": "list",
+                    "cachedResultName": "Claude Haiku 4.5"
+                },
+                "options": {
+                    "maxTokensToSample": 1024,
+                    "temperature": 0.3
+                }
+            },
+            "id": "50160853-e47e-48b8-aeab-d11dd61ddd03",
+            "name": "Claude_Haiku",
+            "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+            "typeVersion": 1.3,
+            "position": [
+                832,
+                352
+            ],
+            "credentials": {
+                "anthropicApi": {
+                    "id": "zMnyrP37iGVPC2OB",
+                    "name": "Anthropic account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "// Extract AI response with error fallback\nconst items = $input.all();\nconst item = items[0];\n\nlet responseText = '';\nlet aiFailed = false;\n\ntry {\n  responseText = item.json.text || item.json.response || '';\n  if (!responseText || responseText.trim() === '') {\n    throw new Error('Empty AI response');\n  }\n} catch (e) {\n  aiFailed = true;\n  responseText = \"I'm sorry, I'm experiencing a temporary issue processing your request. Please try again in a moment, or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\";\n}\n\nconst userContext = $node[\"Set_User_Context\"].json;\n\nreturn [{\n  json: {\n    responseText,\n    aiFailed,\n    session: userContext.session || 'default',\n    chatId: userContext.fromNumber\n  }\n}];"
+            },
+            "id": "72ec26db-216a-43e5-81b6-0941b9d744df",
+            "name": "Extract_AI_Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1104,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "insert",
+                "schema": {
+                    "mode": "name",
+                    "value": "public"
+                },
+                "table": {
+                    "mode": "name",
+                    "value": "conversation_history"
+                },
+                "columns": {
+                    "mappingMode": "autoMapInputData",
+                    "value": null
+                },
+                "options": {}
+            },
+            "id": "db90d34b-a9d7-43fd-b415-9f241d7577db",
+            "name": "DB_Store_Conversation",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                2000,
+                128
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "3expq1dbaLHM9U77",
+                    "name": "PostgreSQL account"
+                }
+            },
+            "onError": "continueRegularOutput",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build execution log object with retry info\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst faqData = $node[\"Merge_History_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\n\nfor (const item of items) {\n  item.json = {\n    execution_id: $execution.id,\n    workflow_name: 'whatsapp-faq-bot',\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    phone_number: userContext.fromNumber,\n    status: 'success',\n    execution_data: JSON.stringify({\n      isKnownUser: userContext.isKnownUser,\n      userName: userContext.userName,\n      userPreferredLanguage: userContext.userPreferredLanguage,\n      faqLoaded: faqData.faqLoaded,\n      historyCount: faqData.historyCount,\n      messageLength: userContext.messageBody ? userContext.messageBody.length : 0,\n      responseLength: aiResponse.responseText ? aiResponse.responseText.length : 0,\n      aiFailed: aiResponse.aiFailed || false,\n      retryCount: sendResult.retryCount || 0,\n      wahaMessageId: sendResult.wahaMessageId || null,\n      executionTime: new Date().toISOString()\n    })\n  };\n}\nreturn items;"
+            },
+            "id": "8b4b3c34-3718-4b08-9b35-4b7b2a47ff19",
+            "name": "Build_Execution_Log",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2224,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "insert",
+                "schema": {
+                    "mode": "name",
+                    "value": "public"
+                },
+                "table": {
+                    "mode": "name",
+                    "value": "execution_logs"
+                },
+                "columns": {
+                    "mappingMode": "autoMapInputData",
+                    "value": null
+                },
+                "options": {}
+            },
+            "id": "816698ec-ad4a-4036-9f9b-9505dfb9e6b8",
+            "name": "DB_Log_Execution",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                2448,
+                128
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "3expq1dbaLHM9U77",
+                    "name": "PostgreSQL account"
+                }
+            },
+            "onError": "continueRegularOutput",
+            "alwaysOutputData": true
+        },
+        {
+            "parameters": {
+                "method": "POST",
+                "url": "http://host.docker.internal:3000/api/sendText",
+                "authentication": "predefinedCredentialType",
+                "nodeCredentialType": "headerAuth",
+                "sendHeaders": true,
+                "headerParameters": {
+                    "parameters": [
+                        {
+                            "name": "Content-Type",
+                            "value": "application/json"
+                        }
+                    ]
+                },
+                "sendBody": true,
+                "specifyBody": "json",
+                "jsonBody": "={{ { \"session\": $node[\"Set_User_Context\"].json.session, \"chatId\": $node[\"Set_User_Context\"].json.fromNumber, \"text\": \"We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\" } }}",
+                "options": {}
+            },
+            "id": "a584383f-786e-46a1-996b-6b652fb60bf5",
+            "name": "Send_Fallback_Error",
+            "type": "n8n-nodes-base.httpRequest",
+            "typeVersion": 4.2,
+            "position": [
+                2448,
+                512
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "text",
+                "responseBody": "={{ $json.status || 'OK' }}",
+                "options": {}
+            },
+            "id": "1eaa98d4-beab-4f19-b24e-434aaf2ad270",
+            "name": "Webhook_Response",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1.1,
+            "position": [
+                2672,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Merge user data from database query\nconst items = $input.all();\nconst dbResult = items[0].json;\nconst extractedData = $node[\"Extract_Message_Data\"].json;\n\nfor (const item of items) {\n  // Check if user exists in database\n  if (dbResult && dbResult.id) {\n    item.json = {\n      ...extractedData,\n      isKnownUser: true,\n      userId: dbResult.id,\n      userName: dbResult.name || 'User',\n      userStatus: dbResult.status || 'active',\n      userPreferredLanguage: dbResult.preferred_language || 'en'\n    };\n  } else {\n    item.json = {\n      ...extractedData,\n      isKnownUser: false,\n      userId: null,\n      userName: 'User',\n      userStatus: 'unknown',\n      userPreferredLanguage: 'en'\n    };\n  }\n}\n\nreturn items;"
+            },
+            "id": "f8e07e6d-7c8a-4363-9e10-4ce4ffc8e1d7",
+            "name": "Set_User_Context",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                -592,
+                256
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare data for DB_Store_Conversation\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\n\nfor (const item of items) {\n  item.json = {\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    user_message: userContext.messageBody,\n    bot_response: aiResponse.responseText,\n    detected_language: 'en',\n    faq_matched: true,\n    sent: sendResult.sent || false\n  };\n}\nreturn items;"
+            },
+            "id": "prepare-store-data-001",
+            "name": "Prepare_Store_Data",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1776,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Send WAHA response with exponential backoff retry\nconst userContext = $node[\"Set_User_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\n\nconst wahaUrl = 'http://host.docker.internal:3000/api/sendText';\nconst wahaApiKey = '06db31514cc34e11a51b556678ba03c2';\nconst payload = {\n  session: userContext.session || 'default',\n  chatId: userContext.fromNumber,\n  text: aiResponse.responseText\n};\n\nconst maxRetries = 3;\nconst backoffDelays = [2000, 4000, 8000]; // 2s, 4s, 8s\nlet lastError = null;\nlet retryCount = 0;\nconst helpers = this.helpers;\n\nfor (let attempt = 0; attempt <= maxRetries; attempt++) {\n  if (attempt > 0) {\n    await new Promise(r => setTimeout(r, backoffDelays[attempt - 1] || 8000));\n  }\n  try {\n    const response = await helpers.httpRequest({\n      method: 'POST',\n      url: wahaUrl,\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Api-Key': wahaApiKey\n      },\n      body: payload,\n      json: true,\n      timeout: 10000\n    });\n\n    // Success - httpRequest returns parsed JSON directly\n    const wahaMessageId = response.id || response.messageId || null;\n    return [{\n      json: {\n        ...userContext,\n        responseText: aiResponse.responseText,\n        sent: true,\n        retryCount: attempt,\n        wahaMessageId,\n        errorReason: null\n      }\n    }];\n  } catch (error) {\n    lastError = error.message || String(error);\n    retryCount = attempt + 1;\n    // Don't retry 4xx client errors\n    const statusCode = error.statusCode || error.httpCode || 0;\n    if (statusCode >= 400 && statusCode < 500) {\n      break;\n    }\n  }\n}\n\n// All retries exhausted\nreturn [{\n  json: {\n    ...userContext,\n    responseText: aiResponse.responseText,\n    sent: false,\n    retryCount,\n    wahaMessageId: null,\n    errorReason: lastError\n  }\n}];"
+            },
+            "id": "send-waha-retry-001",
+            "name": "Send_WAHA_With_Retry",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1328,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "conditions": {
+                    "options": {
+                        "caseSensitive": true,
+                        "leftValue": "",
+                        "typeValidation": "strict"
+                    },
+                    "conditions": [
+                        {
+                            "id": "send-status",
+                            "leftValue": "={{ $json.sent }}",
+                            "rightValue": true,
+                            "operator": {
+                                "type": "boolean",
+                                "operation": "equals"
+                            }
+                        }
+                    ],
+                    "combinator": "and"
+                },
+                "options": {}
+            },
+            "id": "check-send-status-001",
+            "name": "Check_Send_Status",
+            "type": "n8n-nodes-base.if",
+            "typeVersion": 2.2,
+            "position": [
+                1552,
+                128
+            ]
+        },
+        {
+            "parameters": {
+                "jsCode": "// Prepare data for failed_messages table insert\nconst items = $input.all();\nconst item = items[0].json;\n\nreturn [{\n  json: {\n    chat_id: item.fromNumber,\n    user_id: item.userId || null,\n    message_payload: JSON.stringify({\n      session: item.session,\n      chatId: item.fromNumber,\n      userMessage: item.messageBody\n    }),\n    response_text: item.responseText,\n    failure_reason: item.errorReason || 'Unknown error after retries',\n    retry_count: item.retryCount || 3,\n    last_retry_at: new Date().toISOString()\n  }\n}];"
+            },
+            "id": "prepare-failed-msg-001",
+            "name": "Prepare_Failed_Message",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1776,
+                384
+            ]
+        },
+        {
+            "parameters": {
+                "operation": "insert",
+                "schema": {
+                    "__rl": true,
+                    "mode": "name",
+                    "value": "public"
+                },
+                "table": {
+                    "__rl": true,
+                    "mode": "name",
+                    "value": "failed_messages"
+                },
+                "columns": {
+                    "mappingMode": "autoMapInputData",
+                    "value": null,
+                    "matchingColumns": []
+                },
+                "options": {}
+            },
+            "id": "db-store-failed-001",
+            "name": "DB_Store_Failed_Message",
+            "type": "n8n-nodes-base.postgres",
+            "typeVersion": 2.6,
+            "position": [
+                2000,
+                384
+            ],
+            "credentials": {
+                "postgres": {
+                    "id": "3expq1dbaLHM9U77",
+                    "name": "PostgreSQL account"
+                }
+            },
+            "alwaysOutputData": true,
+            "onError": "continueRegularOutput"
+        },
+        {
+            "parameters": {
+                "jsCode": "// Build execution log entry for failed sends\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\nconst faqData = $node[\"Merge_History_Context\"].json;\n\nfor (const item of items) {\n  item.json = {\n    execution_id: $execution.id,\n    workflow_name: 'whatsapp-faq-bot',\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    phone_number: userContext.fromNumber,\n    status: 'failed_after_retries',\n    execution_data: JSON.stringify({\n      isKnownUser: userContext.isKnownUser,\n      userName: userContext.userName,\n      userPreferredLanguage: userContext.userPreferredLanguage,\n      faqLoaded: faqData.faqLoaded,\n      historyCount: faqData.historyCount,\n      retryCount: sendResult.retryCount,\n      errorReason: sendResult.errorReason,\n      executionTime: new Date().toISOString()\n    })\n  };\n}\nreturn items;"
+            },
+            "id": "build-error-log-001",
+            "name": "Build_Error_Log",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                2224,
+                384
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook_WAHA_Incoming": {
+            "main": [
+                [
+                    {
+                        "node": "Extract_Message_Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract_Message_Data": {
+            "main": [
+                [
+                    {
+                        "node": "Filter_Self_Messages",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Filter_Self_Messages": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Check_Known_User",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "DB_Check_Known_User": {
+            "main": [
+                [
+                    {
+                        "node": "Set_User_Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse_FAQ_Database": {
+            "main": [
+                [
+                    {
+                        "node": "Check_FAQ_Loaded",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check_FAQ_Loaded": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Get_History",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Send_Fallback_Error",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "DB_Get_History": {
+            "main": [
+                [
+                    {
+                        "node": "Merge_History_Context",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Merge_History_Context": {
+            "main": [
+                [
+                    {
+                        "node": "Build_AI_Prompt",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build_AI_Prompt": {
+            "main": [
+                [
+                    {
+                        "node": "AI_FAQ_Matcher",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "AI_FAQ_Matcher": {
+            "main": [
+                [
+                    {
+                        "node": "Extract_AI_Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Extract_AI_Response": {
+            "main": [
+                [
+                    {
+                        "node": "Send_WAHA_With_Retry",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "DB_Store_Conversation": {
+            "main": [
+                [
+                    {
+                        "node": "Build_Execution_Log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build_Execution_Log": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Log_Execution",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "DB_Log_Execution": {
+            "main": [
+                [
+                    {
+                        "node": "Webhook_Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send_Fallback_Error": {
+            "main": [
+                [
+                    {
+                        "node": "Webhook_Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Claude_Haiku": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "AI_FAQ_Matcher",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Set_User_Context": {
+            "main": [
+                [
+                    {
+                        "node": "Parse_FAQ_Database",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare_Store_Data": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Store_Conversation",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Send_WAHA_With_Retry": {
+            "main": [
+                [
+                    {
+                        "node": "Check_Send_Status",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Check_Send_Status": {
+            "main": [
+                [
+                    {
+                        "node": "Prepare_Store_Data",
+                        "type": "main",
+                        "index": 0
+                    }
+                ],
+                [
+                    {
+                        "node": "Prepare_Failed_Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Prepare_Failed_Message": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Store_Failed_Message",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "DB_Store_Failed_Message": {
+            "main": [
+                [
+                    {
+                        "node": "Build_Error_Log",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Build_Error_Log": {
+            "main": [
+                [
+                    {
+                        "node": "DB_Log_Execution",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "settings": {
+        "executionOrder": "v1",
+        "binaryMode": "separate",
+        "availableInMCP": false,
+        "callerPolicy": "workflowsFromSameOwner"
+    },
+    "staticData": null,
+    "meta": {
+        "templateCredsSetupCompleted": true
+    },
+    "pinData": {},
+    "versionId": "97d50d3f-d0cc-49df-a72e-8fec1ea711ad",
+    "activeVersionId": "97d50d3f-d0cc-49df-a72e-8fec1ea711ad",
+    "versionCounter": 126,
+    "triggerCount": 1,
+    "shared": [
+        {
+            "updatedAt": "2026-02-09T01:43:22.995Z",
+            "createdAt": "2026-02-09T01:43:22.995Z",
+            "role": "workflow:owner",
+            "workflowId": "F3i-SoCq4WIvV5VTGOOMK",
+            "projectId": "VQPTCiPoqgig8WnF",
+            "project": {
+                "updatedAt": "2026-02-07T02:49:19.177Z",
+                "createdAt": "2026-02-06T16:03:35.944Z",
+                "id": "VQPTCiPoqgig8WnF",
+                "name": "Choowie Choo <najmanmaliki@gmail.com>",
+                "type": "personal",
+                "icon": null,
+                "description": null,
+                "creatorId": "9d771ab8-7c04-4902-b8f9-761722ee0187",
+                "projectRelations": [
+                    {
+                        "updatedAt": "2026-02-06T16:03:35.944Z",
+                        "createdAt": "2026-02-06T16:03:35.944Z",
+                        "userId": "9d771ab8-7c04-4902-b8f9-761722ee0187",
+                        "projectId": "VQPTCiPoqgig8WnF",
+                        "user": {
+                            "updatedAt": "2026-02-11T06:36:08.000Z",
+                            "createdAt": "2026-02-06T16:03:35.769Z",
+                            "id": "9d771ab8-7c04-4902-b8f9-761722ee0187",
+                            "email": "najmanmaliki@gmail.com",
+                            "firstName": "Choowie",
+                            "lastName": "Choo",
+                            "personalizationAnswers": {
+                                "version": "v4",
+                                "personalization_survey_submitted_at": "2026-02-07T02:49:32.213Z",
+                                "personalization_survey_n8n_version": "2.6.4",
+                                "companyType": "personal",
+                                "reportedSource": "llm"
+                            },
+                            "settings": {
+                                "userActivated": true,
+                                "easyAIWorkflowOnboarded": true,
+                                "firstSuccessfulWorkflowId": "KbVfzQfPUhSFPPTxeJ8jp",
+                                "userActivatedAt": 1770563903820
+                            },
+                            "disabled": false,
+                            "mfaEnabled": false,
+                            "lastActiveAt": "2026-02-11",
+                            "isPending": false
+                        }
+                    }
+                ]
+            }
+        }
+    ],
+    "tags": [],
+    "activeVersion": {
+        "updatedAt": "2026-02-11T10:56:33.037Z",
+        "createdAt": "2026-02-11T10:56:33.037Z",
+        "versionId": "97d50d3f-d0cc-49df-a72e-8fec1ea711ad",
+        "workflowId": "F3i-SoCq4WIvV5VTGOOMK",
+        "nodes": [
+            {
+                "parameters": {
+                    "httpMethod": "POST",
+                    "path": "whatsapp-listener-faq",
+                    "responseMode": "responseNode",
+                    "options": {}
+                },
+                "id": "a072567f-2ae0-4717-ab04-645c25e476fc",
+                "name": "Webhook_WAHA_Incoming",
+                "type": "n8n-nodes-base.webhook",
+                "typeVersion": 2,
+                "position": [
+                    -1488,
+                    256
+                ],
+                "webhookId": "whatsapp-faq",
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "assignments": {
+                        "assignments": [
+                            {
+                                "id": "message-body",
+                                "name": "messageBody",
+                                "value": "={{ $json.body.payload.body }}",
+                                "type": "string"
+                            },
+                            {
+                                "id": "from-number",
+                                "name": "fromNumber",
+                                "value": "={{ $json.body.payload.from }}",
+                                "type": "string"
+                            },
+                            {
+                                "id": "from-me",
+                                "name": "fromMe",
+                                "value": "={{ $json.body.payload.fromMe }}",
+                                "type": "boolean"
+                            },
+                            {
+                                "id": "timestamp",
+                                "name": "timestamp",
+                                "value": "={{ $json.body.payload.timestamp }}",
+                                "type": "number"
+                            },
+                            {
+                                "id": "session",
+                                "name": "session",
+                                "value": "={{ $json.body.session }}",
+                                "type": "string"
+                            }
+                        ]
+                    },
+                    "options": {}
+                },
+                "id": "6f2e64f5-aa85-4dc2-b76e-5584759088f4",
+                "name": "Extract_Message_Data",
+                "type": "n8n-nodes-base.set",
+                "typeVersion": 3.4,
+                "position": [
+                    -1264,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "caseSensitive": true,
+                            "leftValue": "",
+                            "typeValidation": "strict",
+                            "version": 2
+                        },
+                        "conditions": [
+                            {
+                                "id": "not-from-me",
+                                "leftValue": "={{ $json.fromMe }}",
+                                "rightValue": false,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "equals"
+                                }
+                            },
+                            {
+                                "id": "has-message",
+                                "leftValue": "={{ $json.messageBody }}",
+                                "rightValue": "",
+                                "operator": {
+                                    "type": "string",
+                                    "operation": "notEmpty"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "0033bd1c-97b4-46d0-90e5-7b836762422f",
+                "name": "Filter_Self_Messages",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    -1040,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "executeQuery",
+                    "query": "SELECT id, name, status, preferred_language \nFROM users \nWHERE phone_number = $1",
+                    "options": {
+                        "queryReplacement": "={{ $json.fromNumber }}"
+                    }
+                },
+                "id": "689d5b5c-debe-4bf6-b226-896d0bfd64ea",
+                "name": "DB_Check_Known_User",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    -816,
+                    256
+                ],
+                "credentials": {
+                    "postgres": {
+                        "id": "3expq1dbaLHM9U77",
+                        "name": "PostgreSQL account"
+                    }
+                },
+                "onError": "continueRegularOutput",
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "const faqDatabase = {\n  \"source\": \"https://www.myipo.gov.my/faq/\",\n  \"title\": \"MyIPO FAQ - Intellectual Property Corporation of Malaysia\",\n  \"categories\": [\n    {\n      \"category\": \"TRADEMARK\",\n      \"faqs\": [\n        {\n          \"question\": \"What is a Trademark?\",\n          \"answer\": \"Trademark means any sign capable of being represented graphically which is capable of distinguishing goods or services of one undertaking from those of other undertakings. Sign includes any letter, word, name, signature, numeral, device, brand, heading, label, ticket, shape of goods or their packaging, colour, sound, scent, hologram, positioning, sequence of motion or any combination thereof. A Trademark is used as a marketing tool to enable customers to choose a product or services in the market place.\"\n        },\n        {\n          \"question\": \"What are the functions of trademarks?\",\n          \"answer\": \"Origin Function \u2013 A trademark indicates the source of goods or services in the market place. Choice Function \u2013 A trademark facilitates consumers in making choices of goods or services. Quality Function \u2013 Consumers have preference to choose a particular trademark for its known quality. Marketing Function \u2013 Trademark act as an effective medium of advertising for producer in marketing their goods or services. Economic Function \u2013 A trademark which is well known with a quality or reputation may be licensed or assigned as an economic asset.\"\n        },\n        {\n          \"question\": \"What is the law governing trademarks?\",\n          \"answer\": \"Trademarks Act 2019 (Act 815) has been enforced on 27th December 2019. Applicable to all applications filed on 27th December onwards and to the existing registered trademarks. Trade Marks Act 1976 (Act 175) is applicable to all pending trademarks filed before 27th December 2019 until to the enforcement of Trademarks Act 2019.\",\n          \"related_documents\": [\n            \"Trademarks Act 2019 (Act 815)\",\n            \"Trade Marks Act 1976 (Act 175)\",\n            \"Trade Mark (Amendment) Act 1994 (Act A881)\",\n            \"Trade Mark (Amendment) Act 2000 (Act A1078)\",\n            \"Trade Mark (Amendment) Act 2002 (Act A1138)\",\n            \"Trademarks Regulations 2019\",\n            \"Guidelines of Trademarks 2019\",\n            \"Guidelines of Trademarks (Transitional Matters) 2019\",\n            \"Trade Marks Regulations 1997\"\n          ]\n        },\n        {\n          \"question\": \"Why is trademark registration important?\",\n          \"answer\": \"Exclusive Right \u2013 Registered trademark owners are conferred exclusive right to use their marks in trade. They also have the right to take legal action for infringement under the Trademarks Act 2019 against others who use their marks without consent. They can also lodge complaints to the Enforcement Division of Ministry of Domestic Trade and Consumer Affairs (MDTCA) for appropriate actions under the Trade Descriptions Act 2011. Registration Conclusive \u2013 Registration notice issued by the Registrar is conclusive evidence of trademark ownership in the court of law.\"\n        },\n        {\n          \"question\": \"Is trademark registration compulsory?\",\n          \"answer\": \"Registration of trademark is indeed important to obtain exclusive rights for purposes of exploitation and commencing infringement actions. However, registration is not compulsory.\"\n        },\n        {\n          \"question\": \"What happens if the trademark is not registered in an action for infringement?\",\n          \"answer\": \"The owner cannot commence any action under the provisions of the Trademarks Act 2019. However, actions may be instituted under the common law principals whereby the trademark owner has a duty to convince the court that the infringing act had mislead the public and the infringing goods or services may be mistaken as his goods or services. This action is very contentious and costly.\"\n        },\n        {\n          \"question\": \"Who may file trademark applications?\",\n          \"answer\": \"Any person who is the owner of trademark using the trademark or proposes to use the trademark may apply for registration in Malaysia. The owner may be an individual, partnership, company or organization.\"\n        },\n        {\n          \"question\": \"When can an application for registration of a trademark be made?\",\n          \"answer\": \"An application for trademark may be filed at any time immaterial of the fact whether the trademark has been used, being used or proposed to be used.\"\n        },\n        {\n          \"question\": \"Are all trademarks registrable?\",\n          \"answer\": \"Not all trademarks are registrable. In general, in order for a trademark to be registrable it cannot contains words or representations prohibited under Section 23 and Section 24 of Trademarks Act 2019 and Regulation 4 of Trademark Regulations 2019.\"\n        },\n        {\n          \"question\": \"What are the filing requirements?\",\n          \"answer\": \"Filing requirements: Complete Application For Registration Of Trademark form (model form is available-Fee code TMA2A-TMA2C) \u2013 2 copies. One copy will be returned to customer for future reference. The trademark size must not exceed 10 cm x 10 cm. The description of the trademark is required if the nature of the trademark is shape of goods, aspect of packaging, scent, hologram, positioning or sequence of motion. For sound mark, the description and provide MP3 of the sound. For colour mark, the description and the Pantone code (PMS) is required. The translation is required for non-roman letters or non-national language or English. The payment is RM950.00 (Fee code TMA2A) per class if the list of goods/services applied for is adopted from the pre-approved list of goods/services and RM1100.00 (Fee Code TMA2B) per class if the list of goods or services is not adopted from the pre-approved list. If the trademark is in series, an additional fee of RM50.00 is applicable for the second and each subsequent trademark (Fee Code TMA2C). The maximum is 6 series. The applicant may apply more than one class in single application (Multiple classes). Payment is made either by cash/cheque/money order/bank draft/credit card and payable to 'Perbadanan Harta Intelek Malaysia'.\"\n        },\n        {\n          \"question\": \"What is the total cost to file a trademark application?\",\n          \"answer\": \"The application can either be single or multiple class. The fee is RM 950.00 per class for pre-approved list of goods/services and RM1100.00 per class without pre-approved list.\"\n        },\n        {\n          \"question\": \"What is the purpose of preliminary advice and search by Registrar?\",\n          \"answer\": \"Before proceeding to file a trademark, it is highly advisable for the intended applicant to conduct a trademark search to avoid any refusal raised against an application which has been filed. Applicant may file an application together with payment of the prescribed fee to the Registrar for preliminary advice and search whether the trademark is prima facie a registrable trademark. The examination will be based on absolute and relative grounds.\"\n        },\n        {\n          \"question\": \"What is expedited examination (EE)?\",\n          \"answer\": \"Expedited examination is introduced to allow trademarks which comply with the Trademarks Act and Regulations to be registered within 6 months and 3 weeks upon filing the prescribed form and fee along with the reason. However, expedited examination not applicable for collective mark, certification mark and sign which are colour, sound, scent, hologram, positioning or sequence of motion.\"\n        },\n        {\n          \"question\": \"What are the reasons that allow to request for expedited examination?\",\n          \"answer\": \"Reasons for requesting expedited examination: The request is in the national or public interest; There are infringement proceedings taking place or evidence showing potential infringement in respect of the trademark applied for under regulation 35 (Application for registration); Registration of the trademark is a condition to obtain monetary benefits from the Government or institutions recognised by the Registrar; or There are other reasonable grounds which support the request.\"\n        },\n        {\n          \"question\": \"What are the main reasons for rejecting an application?\",\n          \"answer\": \"There are two broad grounds for rejection of trademark applications. These are 'absolute grounds' and 'relative grounds'.\"\n        },\n        {\n          \"question\": \"What is the duration of a trademark protection?\",\n          \"answer\": \"The period of protection is 10 years, renewable for a period of every 10 years thereafter.\"\n        },\n        {\n          \"question\": \"Does Malaysian registration for trademark give protection abroad?\",\n          \"answer\": \"No, trademark protection is territorial in nature. The owner has to seek registration in each country either via national route or Madrid route.\"\n        },\n        {\n          \"question\": \"How does one secure trademark protection abroad?\",\n          \"answer\": \"Malaysia has acceded to the Madrid Protocol, an international trademark registration system administered by the World Intellectual Property Organization (WIPO), and has come in to force on 27th December 2019. Hence, trademark owners in Malaysia can register their trademark through the Madrid system to get protection abroad. By filing one international application through the Intellectual Property Corporation of Malaysia (MyIPO) in one language, and paying fees in one currency, a trademark owner can obtain protection in multiple member countries at a cheaper and easier cost without having to deal with each the country you want to explore.\"\n        },\n        {\n          \"question\": \"Is it necessary for an applicant to appoint a registered trademark agent for purposes of filing an application?\",\n          \"answer\": \"A local applicant may file a trademark application directly himself. A foreign applicant must file an application through a registered trademark agent.\"\n        },\n        {\n          \"question\": \"Who is a registered trademark agent?\",\n          \"answer\": \"A registered trademark agent may be an individual, firm or company who has been registered in the Register of Trademarks Agent. They are appointed by the applicants to act on their behalf in obtaining trademark registration.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"PATENT\",\n      \"faqs\": [\n        {\n          \"question\": \"What is patent?\",\n          \"answer\": \"A patent is an exclusive right granted for an invention, which is a product or a process that provides a new way of doing something, or offers a technical solution to a problem. A patent provides protection for a period of 20 years from the date of filing.\"\n        },\n        {\n          \"question\": \"What is a utility innovation?\",\n          \"answer\": \"A utility innovation is an exclusive right granted for a 'minor' invention. Utility innovations are protected for an initial period of 10 years which may be extended for another two 5-year terms, providing a total protection period of 20 years.\"\n        },\n        {\n          \"question\": \"What is the law governing patents in Malaysia?\",\n          \"answer\": \"The provisions of the Patents Act 1983, Patents Regulations 1986, Directive of Patents Act 1983 and Patents Regulations 1986 and Practice Notice 1/2022 form the regulatory framework for the law of patents in Malaysia.\"\n        },\n        {\n          \"question\": \"Can I file my invention in foreign countries without filing the same in Malaysia?\",\n          \"answer\": \"Before filing patent application outside Malaysia, the owner and/or inventor who is a resident of Malaysia have to obtain Written Authority from the Patent Registration Office. The application can be made by filing Form 1B with prescribed fee and briefly describe the invention. Failure to obtain a written authority, the applicant considered has commit an offence under section 62A of the Act.\"\n        },\n        {\n          \"question\": \"What rights does patent owner have?\",\n          \"answer\": \"A patent owner has the right to use the patented invention, or may license to other parties to use the invention, or sell the right of the invention to someone else who will then become the new owner of the patent.\"\n        },\n        {\n          \"question\": \"Is it possible to find out if the invention is new before the applicant applies for protection?\",\n          \"answer\": \"Yes. A search can be conducted at the Public Search Room, MyIPO or via internet access to IP Online on earlier Malaysian patent documents.\"\n        },\n        {\n          \"question\": \"Can the applicant get protection after the invention is made public before filing a patent application?\",\n          \"answer\": \"Yes, provided that the applicant files an application within 12 months of the disclosure.\"\n        },\n        {\n          \"question\": \"What is the total cost to file a patent and utility innovation application?\",\n          \"answer\": \"The total cost for patent application \u2013 RM 1,390 and for utility innovation \u2013 RM1,240\"\n        },\n        {\n          \"question\": \"Where can the applicant seek assistance in preparing patent application?\",\n          \"answer\": \"The applicant could seek services from a registered patent agent for preparation of a patent application.\"\n        },\n        {\n          \"question\": \"Are all patent applications treated as confidential?\",\n          \"answer\": \"Yes, all patent applications are confidential until after 18 months from the priority date or filing date of the application.\"\n        },\n        {\n          \"question\": \"What is the different between substantive examination and modified substantive examination?\",\n          \"answer\": \"Substantive examination carried out by the Patent Examiner to examine technical contents of your patent application. The Examiner shall search documents available worldwide relating to the invention in order to determine whether your application fulfil the substantive requirements under the Patent Act and Regulations. Modified substantive examination is an effective short-cut to process a patent application through to grant by making as much use as possible of any search or examination already carried out by a foreign Patent Office that is Australia, United Kingdom, United States of America, Japan and Korea on a corresponding patent application for the same invention.\"\n        },\n        {\n          \"question\": \"Can I request for Expedited Examination?\",\n          \"answer\": \"Yes, request for approval of expedited examination (Form 5H) can be filed provided that the applicant has filed request for substantive examination (Form 5) or request for modified substantive examination (Form 5A).\"\n        },\n        {\n          \"question\": \"What is a Third Party Observation (TPO)?\",\n          \"answer\": \"Third Party Observation allow any person to make observation on any matter relating to patentability of a patent application and the application shall include the reason for such observation. The application has to be filed within three months from the date of publication of a patent application in IP Official Journal.\"\n        },\n        {\n          \"question\": \"Can the applicant take a court action against an infringer while his application is still pending?\",\n          \"answer\": \"A court action cannot be taken while an application is still pending. Nevertheless, a court action can be taken as soon as the patent is granted. The protection of a patent commences from the date of filing.\"\n        },\n        {\n          \"question\": \"Does MyIPO allow the owner of a patent to make payment of all the annual fees for the entire duration of his patent in a lump sum after the grant of a patent?\",\n          \"answer\": \"The owner of a patent is allowed to make the payment of annual fee in lump sum for two years or more but not more than five years.\"\n        },\n        {\n          \"question\": \"What happens after the patent expires?\",\n          \"answer\": \"Once a patent expires, the owner no longer holds the exclusive rights to the invention.\"\n        },\n        {\n          \"question\": \"How can an applicant get protection for his invention in other countries?\",\n          \"answer\": \"There are two ways in which an invention can be protected in other countries. An applicant can either apply directly to the relevant countries, or use the international patent application system (Patent Cooperation Treaty).\"\n        },\n        {\n          \"question\": \"What is the Patent Cooperation Treaty (PCT)?\",\n          \"answer\": \"The PCT is an international treaty, administered by World Intellectual Property Organization (WIPO), with more than 155 Paris Convention member countries. The PCT facilitates the filing of an international patent application of an invention in other countries by filing a single application.\"\n        },\n        {\n          \"question\": \"Where can an international patent application be filed?\",\n          \"answer\": \"An international patent application can be filed at MyIPO which acts as a Receiving Office (RO).\"\n        },\n        {\n          \"question\": \"What are the costs for filing an international patent application?\",\n          \"answer\": \"There are three types of fees for filing an international application: (i) international filing fee; (ii) international search fee; and (iii) transmittal fee. Applicant would have to pay only a single set of fees, payable in Malaysian Ringgit.\"\n        },\n        {\n          \"question\": \"What is the timeline for the international application to enter national phase of Designated Office?\",\n          \"answer\": \"An international patent application has about 30 months from the filing date, prior to that application to enter into the national phase [Designated Office (DO)]. The application will be published by International Bureau (WIPO) after 18 months from the priority date together or without international search report.\"\n        },\n        {\n          \"question\": \"What is an international search?\",\n          \"answer\": \"An international search is a high quality search of the relevant patent documents and other technical literatures. The International Search Authority (ISA) issues an international search report on the novelty, inventive step and industrial applicability of the invention.\"\n        },\n        {\n          \"question\": \"What is an international publication?\",\n          \"answer\": \"An international publication is publication of the content of the international patent application to the world together with or without the international search report by WIPO, 18 months after the priority date.\"\n        },\n        {\n          \"question\": \"What is an international preliminary examination?\",\n          \"answer\": \"An international preliminary examination is an examination on the patentability of an invention. The report provides a written opinion on the criteria for patentability of each claim where examination is carried out.\"\n        },\n        {\n          \"question\": \"When and how does an international patent application enter the national phase in Malaysia?\",\n          \"answer\": \"An applicant has to apply for entry into the national phase before the expiry of the 30 months from the priority date. The applicant shall fulfill the requirements for entering the national phase such as paying the national entry fees and submitting a copy of the international application in English language.\"\n        },\n        {\n          \"question\": \"What are the advantages of the PCT?\",\n          \"answer\": \"The Patent Cooperation Treaty (PCT) assists applicants in seeking patent protection internationally for their inventions, helps patent offices with their patent granting decisions, and facilitates public access to a wealth of technical information relating to those inventions. By filing one international patent application under the PCT, applicants can simultaneously seek protection for an invention in a large number of countries.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"PATENT COOPERATION TREATY (PCT)\",\n      \"faqs\": [\n        {\n          \"question\": \"Can I file an international application in Malaysia?\",\n          \"answer\": \"Yes, any Malaysian national or resident can file an international application in Malaysia at the Intellectual Property Corporation of Malaysia (MyIPO) as a receiving office.\"\n        },\n        {\n          \"question\": \"What are the contents of the international application?\",\n          \"answer\": \"An international application shall contain: i. a request (Form PCT/RO/101), ii. a description, iii. one or more claims, iv. one or more drawings (if any), and v. an abstract\"\n        },\n        {\n          \"question\": \"What are the requirement to obtain an international filing date?\",\n          \"answer\": \"The requirement to obtain an international filing date are as following: a. The applicant must be a national or a resident of Malaysia, b. The language of the international application must be in English, c. The international application must contain: i. an indication that it is intended as an international application, ii. a request which has the effect of making all possible designation, iii. the name of the applicant, iv. a description of the invention, v. a claim or claims\"\n        },\n        {\n          \"question\": \"What are the fees payable?\",\n          \"answer\": \"The following fees are payable for an international application filed at MyIPO: a. Transmittal Fee (MyIPO), b. International Filing Fee (International Bureau), c. Search Fee (International Searching Authority)\"\n        },\n        {\n          \"question\": \"Which International Searching Authorities can be specified/chosen by the applicant to conduct the international search for international application?\",\n          \"answer\": \"a. Korean Intellectual Property Office, b. Australian Patent Office, c. European Patent Office\"\n        },\n        {\n          \"question\": \"Beside MyIPO, is there any other office where a Malaysian national or resident can file his international application?\",\n          \"answer\": \"A Malaysian national or resident can file his international application with the International Bureau of WIPO which acts as a receiving office for nationals and residents of all PCT Contracting States.\"\n        },\n        {\n          \"question\": \"How can I file my international application (PCT)?\",\n          \"answer\": \"PCT application can be filed directly to MyIPO or via postal delivery.\"\n        },\n        {\n          \"question\": \"Where can I obtain additional information on PCT?\",\n          \"answer\": \"For further information on PCT, you can visit WIPO website.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"INDUSTRIAL DESIGN\",\n      \"faqs\": [\n        {\n          \"question\": \"What is an industrial design?\",\n          \"answer\": \"An industrial design is the overall appearance of an article or a product. The design may consist of three dimension features such as the shape and configuration of an article, or two dimension features, such as pattern and ornamentation. The design features must be applied to an article by an industrial process or means of which, the features in the finished article gives it a unique appearance.\"\n        },\n        {\n          \"question\": \"What is non-registrable design?\",\n          \"answer\": \"It does not have a clear aesthetic appearance. It is a method or principle of construction. Designs features dictated solely by function. Integral parts which consist features that dependent upon the appearance of another article. Differs only in immaterial details or in features commonly used in the relevant trade (trade variants). The designs those are contrary to public order or morality.\"\n        },\n        {\n          \"question\": \"How to file an application for registration of an industrial design?\",\n          \"answer\": \"Requirement to file an application for registration: (i) A completed application form ID Form 1 in English or RBP 1 in Malay. (ii) Six set of representations of the article either photograph or drawing. (iii) A statement of novelty in respect of the industrial design to which the design is applied. However for registering wallpaper, lace or textile, the statement of novelty can be attach separately in the following page. (iv) Payment in full of the appropriate filing fee. (v) Statement justifying applicant's right should be filed if the applicant is not an author.\"\n        },\n        {\n          \"question\": \"When an application should be filed?\",\n          \"answer\": \"As claims are based on rules of 'first to file', filing of an industrial design should be made at the earliest possible time or before an article is disclosed to the public. Prior disclosure will eliminate the novelty of the design. Extreme care should be exercised to ensure secrecy of the design.\"\n        },\n        {\n          \"question\": \"Who can apply for design registration?\",\n          \"answer\": \"Only the owner of the design may apply to register the design. The owner may authorize an agent to file an application on his behalf. Where an applicant's ordinary residence or principal place of business is outside Malaysia, the applicant shall appoint an agent registered in the Register of Industrial Designs Agent.\"\n        },\n        {\n          \"question\": \"What is the duration for registering an industrial design?\",\n          \"answer\": \"An application will be registered within 8 months from the date on which a completed application form, documents and prescribed fees are received. The duration could be extended to 14 months due to non compliance of requirements such as incomplete documents and fees not paid.\"\n        },\n        {\n          \"question\": \"What is the duration for protection?\",\n          \"answer\": \"A registered industrial design is given an initial protection period of 5 years from the date of filing and is extendable for a further four consecutive terms of 5 years each. The maximum protection period is 25 years.\"\n        },\n        {\n          \"question\": \"What qualifies an industrial design for registration?\",\n          \"answer\": \"To be eligible for registration, an industrial design must be new at the date an application for registration is filed. A design is considered new only if it has not been made available or disclosed to the public in any way whatsoever in Malaysia or elsewhere (worldwide) before the filing date of application. It also should not be on the record of the Industrial Design Register.\"\n        },\n        {\n          \"question\": \"What rights does a registered design confer?\",\n          \"answer\": \"The owner of a registered design has the exclusive right to make, import or sell or hire out any article to which the design has been applied. Other users should obtain the consent of the rightful owner before using the design. The owner of a registered design has the right to take legal action against an infringer within 5 years from the act of infringement.\"\n        },\n        {\n          \"question\": \"How to claim priority date of an earlier foreign application?\",\n          \"answer\": \"The applicant needs to make the claim when filing the application where the date of priority and country should be stated. Priority date should be claimed within 6 months from the foreign filing. Priority documents and their translations should be furnished as evidence.\"\n        },\n        {\n          \"question\": \"What can be done if someone made copies or infringed my industrial design?\",\n          \"answer\": \"The owner of a registered industrial design has the rights to take legal action. A registration certificate issued by the Industrial Design Registry is recognized by the Court as evidence of ownership. The owner can take legal action pursuant to the Industrial Design Act 1996 or under the Trade Description Act 1972.\"\n        },\n        {\n          \"question\": \"When will an Industrial Design be manufacture or sell?\",\n          \"answer\": \"At anytime time after the application has been filed. Applicants may also exploit their industrial design in the foreign markets. However they would have to obtained protection in relevant countries.\"\n        },\n        {\n          \"question\": \"Are registered designs made public?\",\n          \"answer\": \"Registered designs are open to public inspection and details of the registration are recorded in the Register of Industrial Designs and published in the IP Official Journal.\"\n        },\n        {\n          \"question\": \"Does one have to register an industrial design to get a protection?\",\n          \"answer\": \"Under industrial designs law, there is no protection without registration. An industrial design need to be registered to be eligible for protection. The owner of a registered industrial design has the exclusive rights over his industrial design.\"\n        },\n        {\n          \"question\": \"How extensive is industrial design protection?\",\n          \"answer\": \"An industrial design registered in Malaysia is only protected in Malaysia. In order to have your design protected in other countries who are members of the Paris Convention and to claim priority in Malaysia, application for registration will have to be filed within 6 months from the date of filing in Malaysia.\"\n        },\n        {\n          \"question\": \"Where should I file my application?\",\n          \"answer\": \"Applications may be filed at MyIPO Headquarters or branch offices in Sabah and Sarawak.\",\n          \"office_locations\": {\n            \"sabah\": {\n              \"address\": \"Intellectual Property Corporation of Malaysia, 6th Floor, Blok C, 49, Jalan Karamunsing, Bangunan KWSP, PO BOX 8068, 88999 Kota Kinabalu, Sabah\",\n              \"phone\": \"+6088 254 524\",\n              \"fax\": \"+6088 257 046\"\n            },\n            \"sarawak\": {\n              \"address\": \"Intellectual Property Corporation of Malaysia, Lot 9936, (Sub Lot 5), 3rd Floor, Queen's Court, 93000 Kuching, Sarawak\",\n              \"phone\": \"+6082 459 075 / +6082 459 076\",\n              \"fax\": \"+6082 455 052\"\n            }\n          }\n        }\n      ]\n    },\n    {\n      \"category\": \"GEOGRAPHICAL INDICATION\",\n      \"faqs\": [\n        {\n          \"question\": \"Definition of Geographical Indications\",\n          \"answer\": \"A geographical indication (GI) is a sign contain one or more words and this sign used on products that have a specific geographical origin and possess qualities, reputation or other characteristics that are due to place of origin, country or territory, or a region or locality.\"\n        },\n        {\n          \"question\": \"Who may apply?\",\n          \"answer\": \"(a) any person who is carrying on an activity as a producer in the geographical area with respect to the goods and includes an association of such persons; or (b) a competent authority.\"\n        },\n        {\n          \"question\": \"What are the advantages to obtaining registration for a geographical indication?\",\n          \"answer\": \"A registered proprietor of a geographical indication in relation to the goods for which the geographical indication is registered has the right to\u2014(a) use the geographical indication; and (b) authorize other persons to use the geographical indication (c) the registered proprietor has the right to act, or obtain relief or remedies for infringement of his geographical indication.\"\n        },\n        {\n          \"question\": \"What is the difference between a geographical indication and a trademark?\",\n          \"answer\": \"'Geographical indication' means an indication which may contain one or more words which identifies any goods as originating in a country or territory, or a region or locality in that country or territory, where a given quality, reputation or other characteristic of the goods is essentially attributable to its geographical origin; 'Trademark' means any sign capable of being represented graphically which is capable of distinguishing goods or services of one undertaking from those of other undertaking.\"\n        },\n        {\n          \"question\": \"What distinguishes the difference between the Variant Geographical Indications and the Homonymous Geographical Indications?\",\n          \"answer\": \"Variant Geographical Indications refers to a geographical indication that is different from the original geographical indication that has been registered. The difference in question means any variant of a geographical indication includes any translation, transliteration or other variation of the indication. Homonymous geographical indications (GI) are those that are spelled or pronounced alike, but which identify products contain quality, reputation or other characteristic originating in different places, usually in different countries, territories, or a region. In principle, these indications should coexist, but such coexistence may be subject to certain conditions.\"\n        },\n        {\n          \"question\": \"How to Register?\",\n          \"answer\": \"The applicant needs to submit a registration form, namely the GIA1 form and submit a payment of RM 250.00.\"\n        },\n        {\n          \"question\": \"Can geographical indication applications be made in a different of classes of goods?\",\n          \"answer\": \"Applicants can only apply for items that are in the same class. If the applicant wishes to apply to register a geographical indication for items in a different class, the applicant must submit a different application form.\"\n        },\n        {\n          \"question\": \"What is the total filing fee for applying geographical indication?\",\n          \"answer\": \"The total fee for geographical indication applications is RM 700.00 for one application per class. It must be paid twice, RM 250.00 when the application is submitted and RM 450.00 for Notice of Acceptance.\"\n        },\n        {\n          \"question\": \"If the applicant wishing to apply for the geographical indication is from abroad, how's the procedure?\",\n          \"answer\": \"Applicants from abroad can apply to apply for the geographical indication in Malaysia by submitting the GIA1 application form and appoint an agent of geographical indication in Malaysia by applying the GIA27 form.\"\n        },\n        {\n          \"question\": \"What could have caused a geographical indication to be refused?\",\n          \"answer\": \"The Registrar shall refuse to register a geographical indication if\u2014(a) the geographical indication does not correspond to the meaning of 'geographical indication' as defined in section 2; (b) the geographical indication identifies goods that do not fall within any of the categories of goods as determined by the Registrar; (c) the geographical indication consists exclusively of an indication which is identical with the term customary in the common language as the common name of any goods in Malaysia if registration is sought in relation to the goods; (d) the geographical indication is contrary to public order or morality; (e) the geographical indication is not or has ceased to be protected in its country or territory of origin; (f) the goods does not originate in the country, region or locality indicated in the application for the registration of geographical indication; or (g) the geographical indication in relation to the goods is of such a nature which may mislead the public as to the true place of origin of the goods\"\n        },\n        {\n          \"question\": \"What class and list of goods may be registered as geographical indication\",\n          \"answer\": \"Class 1: Wine and Spirit (Wine, Spirit). Class 2: Prepared foodstuff and beverages (Coffee, Tea, Cocoa, Beer, Rice, Bread, Pastries, Confectionery, Chocolate, Salt, Spices and condiments, Preserved herbs, Edible oils, Sugar, Sweetener). Class 3: Agricultural, aquacultural, horticultural products (Vegetable, Vegetable product, Fruit, Fruit product, Meat, Meat product, Horticultural comestible product which is prepared for consumption, Raw and unprocessed grains, Raw and unprocessed seeds, Flowers and parts of flowers). Class 4: Handicraft. Class 5: Textiles (other than handicraft)\"\n        },\n        {\n          \"question\": \"How long is the period of protection given to a registered geographical indication?\",\n          \"answer\": \"A registered geographical indication is given ten years of protection from the date of filling and is renewable for every ten years.\"\n        },\n        {\n          \"question\": \"If any person aggrieved with by a registration of the geographical indication, what actions can be taken by that person?\",\n          \"answer\": \"Any person aggrieved by a decision of the Registrar in relation to the following matters may apply to the Court to cancel registration of the geographical indication in relation to. A notification through the GIA13 Form (RM 300.00) must be sent to the Office of The Registrar of Geographical Indication\"\n        },\n        {\n          \"question\": \"What is the need to register the goods for example traditional goods under geographical indication, if it is not commercialized?\",\n          \"answer\": \"Although the goods is not commercialized, registration as a geographical indication may protect, not only the goods but the information related to the goods for example processing step and or other specific information, so that the valuable information is not misused or modified until it loses the authenticity of the goods.\"\n        },\n        {\n          \"question\": \"What is the protection status for unregistered geographical indication?\",\n          \"answer\": \"Unregistered geographical indication is not protected under the Geographical Indication Act 2022.\"\n        }\n      ]\n    },\n    {\n      \"category\": \"COPYRIGHT\",\n      \"faqs\": [\n        {\n          \"question\": \"What is copyright?\",\n          \"answer\": \"Copyright is the exclusive right given by law for a determinable time period to the author of the work to control the use of the work in Malaysia.\"\n        },\n        {\n          \"question\": \"Which Act governs the protection of copyright in Malaysia?\",\n          \"answer\": \"Copyright protection is governed by the Copyright Act 1987.\"\n        },\n        {\n          \"question\": \"What works get copyright protection?\",\n          \"answer\": \"The following works are protected: (i) Literary works;\"\n        },\n        {\n          \"question\": \"Does Malaysia have a registration system for copyright?\",\n          \"answer\": \"There is no registration for copyright in Malaysia. The work is protected automatically upon creation.\"\n        },\n        {\n          \"question\": \"What are the ways to prove ownership of copyright?\",\n          \"answer\": \"To prove ownership of copyright, the owner can either: (i) Make a Statutory Declaration in accordance with the Statutory Declaration Act 1960; or (ii) Self address the work in a sealed envelope.\"\n        },\n        {\n          \"question\": \"What are the qualifications for protection of copyright?\",\n          \"answer\": \"(i) Sufficient effort has been expanded to make the work original in character; (ii) The work has been written down, recorded or otherwise reduced into material form; (iii) The author is a qualified person; and (iv) The work is made in Malaysia or the work is first published in Malaysia.\"\n        },\n        {\n          \"question\": \"How owns copyright?\",\n          \"answer\": \"Ownership of copyright is dependent on the following: (i) The work is produced under a contract of service \u2013 Copyright is owned by the employer. (ii) The work is produced under a contract for service \u2013 Copyright is owned by the author. (iii) Commissioned work \u2013 Copyright is owned by the person who commissioned the work.\"\n        },\n        {\n          \"question\": \"Can copyright be transferred?\",\n          \"answer\": \"Copyright is transferable by assignment, testamentary disposition and by operation of law.\"\n        },\n        {\n          \"question\": \"Other than the commercial right of the owner and author of the work, what other right is given to the author of the work?\",\n          \"answer\": \"The Copyright Act 1987 grants moral right to the author of the works.\"\n        },\n        {\n          \"question\": \"What types of moral right are given by the Act?\",\n          \"answer\": \"Two type of moral right are given:\"\n        },\n        {\n          \"question\": \"What right can be utilized by the owner of copyright for infringement of moral right?\",\n          \"answer\": \"The owner can sue inter alia for statutory damages and injunction.\"\n        },\n        {\n          \"question\": \"What is the duration for copyright protection?\",\n          \"answer\": \"(i) For literary, music and artistic works, copyright subsist during the life of the author and 50 years after the death; (ii) For sounds recording, films and broadcasts, copyright subsist 50 years from the year following the publication of the work; and (iii) For published edition, copyright subsist 50 years from the year following the year of edition was first published.\"\n        },\n        {\n          \"question\": \"What are the exclusive rights of the owner?\",\n          \"answer\": \"The copyright owner has the exclusive right to control the whole or substantial part of the work especially: (i) The reproduction in any material form (including making photocopies, recording and others); (ii) The communication to the public; (iii) The performance, showing or playing to the public; (iv) The distribution of copies to the public by sale or other transfer pf ownership; and (v) The commercial rental to the public.\"\n        },\n        {\n          \"question\": \"What acts amount to infringement of copyright?\",\n          \"answer\": \"The copyright in a work infringed when a person, not being owner of the copyright, and without license from the owner, does or authorizes any of the following acts: (i) Reproduced in any material form, performs, shows or plays or distributes to the public. (ii) Communicates by cable or broadcast of the whole works or a substantial part thereof either in its original or derivative form; (iii) Import any article into Malaysia for the purpose of trade or financial gains; (iv) Make for sale or hire any infringing copy; (v) Sells, lets for hire or by way of trade, exposes of offers for sale or hire any infringing copy; (vi) Distributes infringing copies; (vii) Possesses, otherwise then for his private and domestic use, any infringing copy; (viii) By way of trade, exhibits in public any infringing copy; (ix) Imports into Malaysia, otherwise than for his private and domestic use, an infringing copy; (x) Make or has in his possession any contrivance used or intended to be used for the purpose of making infringing copy; or (xi) Causes the work to be performed in public.\"\n        },\n        {\n          \"question\": \"What are the exceptions to the exclusive right granted by the Copyright Act 1987 to the user of the work?\",\n          \"answer\": \"Usage of the work by way of fair dealing for the following purpose accompanied by an acknowledgement of the title of the work and authorship is allowed: (i) non-profit research; (ii) private study; and (iii) Review or the reporting of current event.\"\n        },\n        {\n          \"question\": \"Who is responsible for enforcement of copyright?\",\n          \"answer\": \"The Minister of Domestic Trade, Cooperative and Consumerism (Enforcement Division) and The Royal Malaysia Police are responsible for enforcement of the law.\"\n        },\n        {\n          \"question\": \"What is Collective Management Organisation (CMO)?\",\n          \"answer\": \"A Collective Management Organisation (CMO) is a body empowered by the owner to collect payment/royalty on behalf of the copyright owner.\"\n        },\n        {\n          \"question\": \"Does the Government of Malaysia recognize these Collective Management Organisation (CMO)?\",\n          \"answer\": \"These Collective Management Organisation (CMO) are recognized by the Government of Malaysia.\"\n        },\n        {\n          \"question\": \"What is the right given by the Collective Management Organisation (CMO) to the parties applying for a license?\",\n          \"answer\": \"The Collective Management Organisation (CMO) can grant a license to play the copyright work in public to the applicant.\"\n        },\n        {\n          \"question\": \"What dose the Collective Management Organisation (CMO) do with the royalty collected?\",\n          \"answer\": \"The royalty is distributed by the society to the copyright owner each year.\"\n        },\n        {\n          \"question\": \"Does the Government determine the rate of the royalty collected by the Collective Management Organisation (CMO)?\",\n          \"answer\": \"The government does not control or is government involved in determining the rate. It is determined contractually\"\n        },\n        {\n          \"question\": \"Why is the Government not involved?\",\n          \"answer\": \"Copyright is a private right belonging to the right holder.\"\n        },\n        {\n          \"question\": \"If there is a dispute between the owner and the Collective Management Organisation (CMO), where are the avenues available to the owner?\",\n          \"answer\": \"The dispute can be settled via assistance from the Copyright Tribunal.\"\n        },\n        {\n          \"question\": \"What is meant by performance right?\",\n          \"answer\": \"Performers' rights are right granted to those taking part in a live public performance.\"\n        },\n        {\n          \"question\": \"What is the duration of protection for performers right?\",\n          \"answer\": \"Protection is granted for a period of 50 years from the date of the performance.\"\n        },\n        {\n          \"question\": \"What are the qualifications for protection performers?\",\n          \"answer\": \"Performers right shall subsist in every live performance of which the performer is:\"\n        }\n      ]\n    }\n  ],\n  \"contact_info\": {\n    \"email\": \"ipmalaysia@myipo.gov.my\"\n  },\n  \"metadata\": {\n    \"extracted_date\": \"2026-01-28\",\n    \"note\": \"This JSON file contains all FAQ information from the MyIPO website organized by categories. Some answers may be incomplete in the source HTML (e.g., list of protected works in copyright section).\"\n  }\n};\n\nreturn $input.all().map(item => ({\n  json: {\n    ...item.json,\n    faqDatabase: faqDatabase,\n    faqLoaded: true,\n    faqError: null\n  }\n}));\n"
+                },
+                "id": "c7c808c1-a8fe-4d76-b3a5-20640bbd3d05",
+                "name": "Parse_FAQ_Database",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    -368,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "caseSensitive": true,
+                            "leftValue": "",
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "faq-loaded",
+                                "leftValue": "={{ $json.faqLoaded }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "equals"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "b432ea69-8763-4451-835e-e9b2a7b7b94d",
+                "name": "Check_FAQ_Loaded",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    -144,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "executeQuery",
+                    "query": "SELECT user_message, bot_response, detected_language, created_at \nFROM conversation_history \nWHERE chat_id = $1 \nORDER BY created_at DESC \nLIMIT 5",
+                    "options": {
+                        "queryReplacement": "={{ $json.fromNumber }}"
+                    }
+                },
+                "id": "a91b1de6-37dc-4efd-9a1d-031efe1ec34c",
+                "name": "DB_Get_History",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    80,
+                    128
+                ],
+                "credentials": {
+                    "postgres": {
+                        "id": "3expq1dbaLHM9U77",
+                        "name": "PostgreSQL account"
+                    }
+                },
+                "onError": "continueRegularOutput",
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Combine user context + FAQ data + conversation history\nconst items = $input.all();\nconst faqData = $node[\"Parse_FAQ_Database\"].json;\n\n// Build conversation history string from all returned rows\nlet conversationHistory = '';\nlet historyCount = 0;\n\nif (items.length > 0 && items[0].json && items[0].json.user_message) {\n  // DB_Get_History returned actual rows\n  const historyRows = items.map(item => item.json);\n  historyCount = historyRows.length;\n  const sortedHistory = [...historyRows].reverse();\n  conversationHistory = sortedHistory.map((msg) => {\n    const timestamp = msg.created_at ? new Date(msg.created_at).toLocaleString() : 'unknown';\n    return `[${timestamp}]\\nUser: ${msg.user_message || ''}\\nBot: ${msg.bot_response || ''}\\nLanguage: ${msg.detected_language || 'unknown'}`;\n  }).join('\\n\\n');\n} else {\n  conversationHistory = 'No previous conversation history.';\n}\n\n// CRITICAL: Return exactly 1 item to prevent item index mismatch downstream\nreturn [{\n  json: {\n    ...faqData,\n    conversationHistory: conversationHistory,\n    historyCount: historyCount\n  }\n}];"
+                },
+                "id": "f564d769-c545-4129-afca-791a65d8db44",
+                "name": "Merge_History_Context",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    304,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "const items = $input.all();\nconst faqDatabase = items[0].json.faqDatabase;\nconst userMessage = items[0].json.messageBody;\nconst conversationHistory = items[0].json.conversationHistory;\nconst userName = items[0].json.userName;\nconst userPreferredLanguage = items[0].json.userPreferredLanguage;\n\nconst systemPrompt = `You are a professional and concise FAQ assistant for MyIPO (Intellectual Property Corporation of Malaysia).\nYour knowledge base is a JSON array of frequently asked questions about trademarks, patents, PCT,\nindustrial designs, geographical indications, and copyright.\n\nCRITICAL INSTRUCTIONS:\n1. Use SEMANTIC MATCHING: Understand the user's question by intent/meaning, not exact phrase.\n2. Search the provided FAQ database for the BEST matching answer by topic and intent.\n3. If you find a match (>70% confidence), answer using the FAQ answer and prefix with: \"Based on our FAQ:\"\n4. If no match (<70% confidence), respond: \"I don't have information about this in my knowledge base. Please contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\"\n5. ALWAYS suggest 1-2 related FAQs when a primary match is found.\n6. MULTI-LANGUAGE: Detect the language and respond in the same language.\n   - English (en), Malay (ms), Simplified Chinese (zh)\n   - The FAQ is in English; translate your response to match the user's language.\n   - Please use urban Malay to respond to the user if the user speaks in Malay\n7. If ambiguous, request clarification rather than guessing.\n8. Use conversation history to provide contextual responses when relevant.\n\nTone: Professional, helpful, concise. Keep responses under 150 words when possible.`;\n\nconst userPrompt = `FAQ Knowledge Base:\n${faqDatabase}\n\nConversation History (last 5 messages):\n${conversationHistory}\n\nUser context: ${userName} (preferred language: ${userPreferredLanguage})\n\nUser's Current Message:\n\"${userMessage}\"`;\n\nfor (const item of items) {\n  item.json.systemPrompt = systemPrompt;\n  item.json.userPrompt = userPrompt;\n}\n\nreturn items;"
+                },
+                "id": "d29ea9ac-61f4-4b76-89d3-52a53b774081",
+                "name": "Build_AI_Prompt",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    528,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "promptType": "define",
+                    "text": "={{ $json.userPrompt }}"
+                },
+                "id": "d7c3f092-b395-44ce-90be-92f4aec4cc60",
+                "name": "AI_FAQ_Matcher",
+                "type": "@n8n/n8n-nodes-langchain.chainLlm",
+                "typeVersion": 1.4,
+                "position": [
+                    752,
+                    128
+                ],
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "model": {
+                        "__rl": true,
+                        "value": "claude-haiku-4-5-20251001",
+                        "mode": "list",
+                        "cachedResultName": "Claude Haiku 4.5"
+                    },
+                    "options": {
+                        "maxTokensToSample": 1024,
+                        "temperature": 0.3
+                    }
+                },
+                "id": "50160853-e47e-48b8-aeab-d11dd61ddd03",
+                "name": "Claude_Haiku",
+                "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+                "typeVersion": 1.3,
+                "position": [
+                    832,
+                    352
+                ],
+                "credentials": {
+                    "anthropicApi": {
+                        "id": "zMnyrP37iGVPC2OB",
+                        "name": "Anthropic account"
+                    }
+                }
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Extract AI response with error fallback\nconst items = $input.all();\nconst item = items[0];\n\nlet responseText = '';\nlet aiFailed = false;\n\ntry {\n  responseText = item.json.text || item.json.response || '';\n  if (!responseText || responseText.trim() === '') {\n    throw new Error('Empty AI response');\n  }\n} catch (e) {\n  aiFailed = true;\n  responseText = \"I'm sorry, I'm experiencing a temporary issue processing your request. Please try again in a moment, or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\";\n}\n\nconst userContext = $node[\"Set_User_Context\"].json;\n\nreturn [{\n  json: {\n    responseText,\n    aiFailed,\n    session: userContext.session || 'default',\n    chatId: userContext.fromNumber\n  }\n}];"
+                },
+                "id": "72ec26db-216a-43e5-81b6-0941b9d744df",
+                "name": "Extract_AI_Response",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1104,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "insert",
+                    "schema": {
+                        "mode": "name",
+                        "value": "public"
+                    },
+                    "table": {
+                        "mode": "name",
+                        "value": "conversation_history"
+                    },
+                    "columns": {
+                        "mappingMode": "autoMapInputData",
+                        "value": null
+                    },
+                    "options": {}
+                },
+                "id": "db90d34b-a9d7-43fd-b415-9f241d7577db",
+                "name": "DB_Store_Conversation",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    2000,
+                    128
+                ],
+                "credentials": {
+                    "postgres": {
+                        "id": "3expq1dbaLHM9U77",
+                        "name": "PostgreSQL account"
+                    }
+                },
+                "onError": "continueRegularOutput",
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build execution log object with retry info\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst faqData = $node[\"Merge_History_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\n\nfor (const item of items) {\n  item.json = {\n    execution_id: $execution.id,\n    workflow_name: 'whatsapp-faq-bot',\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    phone_number: userContext.fromNumber,\n    status: 'success',\n    execution_data: JSON.stringify({\n      isKnownUser: userContext.isKnownUser,\n      userName: userContext.userName,\n      userPreferredLanguage: userContext.userPreferredLanguage,\n      faqLoaded: faqData.faqLoaded,\n      historyCount: faqData.historyCount,\n      messageLength: userContext.messageBody ? userContext.messageBody.length : 0,\n      responseLength: aiResponse.responseText ? aiResponse.responseText.length : 0,\n      aiFailed: aiResponse.aiFailed || false,\n      retryCount: sendResult.retryCount || 0,\n      wahaMessageId: sendResult.wahaMessageId || null,\n      executionTime: new Date().toISOString()\n    })\n  };\n}\nreturn items;"
+                },
+                "id": "8b4b3c34-3718-4b08-9b35-4b7b2a47ff19",
+                "name": "Build_Execution_Log",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2224,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "insert",
+                    "schema": {
+                        "mode": "name",
+                        "value": "public"
+                    },
+                    "table": {
+                        "mode": "name",
+                        "value": "execution_logs"
+                    },
+                    "columns": {
+                        "mappingMode": "autoMapInputData",
+                        "value": null
+                    },
+                    "options": {}
+                },
+                "id": "816698ec-ad4a-4036-9f9b-9505dfb9e6b8",
+                "name": "DB_Log_Execution",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    2448,
+                    128
+                ],
+                "credentials": {
+                    "postgres": {
+                        "id": "3expq1dbaLHM9U77",
+                        "name": "PostgreSQL account"
+                    }
+                },
+                "onError": "continueRegularOutput",
+                "alwaysOutputData": true
+            },
+            {
+                "parameters": {
+                    "method": "POST",
+                    "url": "http://host.docker.internal:3000/api/sendText",
+                    "authentication": "predefinedCredentialType",
+                    "nodeCredentialType": "headerAuth",
+                    "sendHeaders": true,
+                    "headerParameters": {
+                        "parameters": [
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    },
+                    "sendBody": true,
+                    "specifyBody": "json",
+                    "jsonBody": "={{ { \"session\": $node[\"Set_User_Context\"].json.session, \"chatId\": $node[\"Set_User_Context\"].json.fromNumber, \"text\": \"We're experiencing a temporary issue loading our FAQ database. Please try again in a few moments or contact MyIPO at ipmalaysia@myipo.gov.my for assistance.\" } }}",
+                    "options": {}
+                },
+                "id": "a584383f-786e-46a1-996b-6b652fb60bf5",
+                "name": "Send_Fallback_Error",
+                "type": "n8n-nodes-base.httpRequest",
+                "typeVersion": 4.2,
+                "position": [
+                    2448,
+                    512
+                ]
+            },
+            {
+                "parameters": {
+                    "respondWith": "text",
+                    "responseBody": "={{ $json.status || 'OK' }}",
+                    "options": {}
+                },
+                "id": "1eaa98d4-beab-4f19-b24e-434aaf2ad270",
+                "name": "Webhook_Response",
+                "type": "n8n-nodes-base.respondToWebhook",
+                "typeVersion": 1.1,
+                "position": [
+                    2672,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Merge user data from database query\nconst items = $input.all();\nconst dbResult = items[0].json;\nconst extractedData = $node[\"Extract_Message_Data\"].json;\n\nfor (const item of items) {\n  // Check if user exists in database\n  if (dbResult && dbResult.id) {\n    item.json = {\n      ...extractedData,\n      isKnownUser: true,\n      userId: dbResult.id,\n      userName: dbResult.name || 'User',\n      userStatus: dbResult.status || 'active',\n      userPreferredLanguage: dbResult.preferred_language || 'en'\n    };\n  } else {\n    item.json = {\n      ...extractedData,\n      isKnownUser: false,\n      userId: null,\n      userName: 'User',\n      userStatus: 'unknown',\n      userPreferredLanguage: 'en'\n    };\n  }\n}\n\nreturn items;"
+                },
+                "id": "f8e07e6d-7c8a-4363-9e10-4ce4ffc8e1d7",
+                "name": "Set_User_Context",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    -592,
+                    256
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Prepare data for DB_Store_Conversation\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\n\nfor (const item of items) {\n  item.json = {\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    user_message: userContext.messageBody,\n    bot_response: aiResponse.responseText,\n    detected_language: 'en',\n    faq_matched: true,\n    sent: sendResult.sent || false\n  };\n}\nreturn items;"
+                },
+                "id": "prepare-store-data-001",
+                "name": "Prepare_Store_Data",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1776,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Send WAHA response with exponential backoff retry\nconst userContext = $node[\"Set_User_Context\"].json;\nconst aiResponse = $node[\"Extract_AI_Response\"].json;\n\nconst wahaUrl = 'http://host.docker.internal:3000/api/sendText';\nconst wahaApiKey = '06db31514cc34e11a51b556678ba03c2';\nconst payload = {\n  session: userContext.session || 'default',\n  chatId: userContext.fromNumber,\n  text: aiResponse.responseText\n};\n\nconst maxRetries = 3;\nconst backoffDelays = [2000, 4000, 8000]; // 2s, 4s, 8s\nlet lastError = null;\nlet retryCount = 0;\nconst helpers = this.helpers;\n\nfor (let attempt = 0; attempt <= maxRetries; attempt++) {\n  if (attempt > 0) {\n    await new Promise(r => setTimeout(r, backoffDelays[attempt - 1] || 8000));\n  }\n  try {\n    const response = await helpers.httpRequest({\n      method: 'POST',\n      url: wahaUrl,\n      headers: {\n        'Content-Type': 'application/json',\n        'X-Api-Key': wahaApiKey\n      },\n      body: payload,\n      json: true,\n      timeout: 10000\n    });\n\n    // Success - httpRequest returns parsed JSON directly\n    const wahaMessageId = response.id || response.messageId || null;\n    return [{\n      json: {\n        ...userContext,\n        responseText: aiResponse.responseText,\n        sent: true,\n        retryCount: attempt,\n        wahaMessageId,\n        errorReason: null\n      }\n    }];\n  } catch (error) {\n    lastError = error.message || String(error);\n    retryCount = attempt + 1;\n    // Don't retry 4xx client errors\n    const statusCode = error.statusCode || error.httpCode || 0;\n    if (statusCode >= 400 && statusCode < 500) {\n      break;\n    }\n  }\n}\n\n// All retries exhausted\nreturn [{\n  json: {\n    ...userContext,\n    responseText: aiResponse.responseText,\n    sent: false,\n    retryCount,\n    wahaMessageId: null,\n    errorReason: lastError\n  }\n}];"
+                },
+                "id": "send-waha-retry-001",
+                "name": "Send_WAHA_With_Retry",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1328,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "conditions": {
+                        "options": {
+                            "caseSensitive": true,
+                            "leftValue": "",
+                            "typeValidation": "strict"
+                        },
+                        "conditions": [
+                            {
+                                "id": "send-status",
+                                "leftValue": "={{ $json.sent }}",
+                                "rightValue": true,
+                                "operator": {
+                                    "type": "boolean",
+                                    "operation": "equals"
+                                }
+                            }
+                        ],
+                        "combinator": "and"
+                    },
+                    "options": {}
+                },
+                "id": "check-send-status-001",
+                "name": "Check_Send_Status",
+                "type": "n8n-nodes-base.if",
+                "typeVersion": 2.2,
+                "position": [
+                    1552,
+                    128
+                ]
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Prepare data for failed_messages table insert\nconst items = $input.all();\nconst item = items[0].json;\n\nreturn [{\n  json: {\n    chat_id: item.fromNumber,\n    user_id: item.userId || null,\n    message_payload: JSON.stringify({\n      session: item.session,\n      chatId: item.fromNumber,\n      userMessage: item.messageBody\n    }),\n    response_text: item.responseText,\n    failure_reason: item.errorReason || 'Unknown error after retries',\n    retry_count: item.retryCount || 3,\n    last_retry_at: new Date().toISOString()\n  }\n}];"
+                },
+                "id": "prepare-failed-msg-001",
+                "name": "Prepare_Failed_Message",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    1776,
+                    384
+                ]
+            },
+            {
+                "parameters": {
+                    "operation": "insert",
+                    "schema": {
+                        "__rl": true,
+                        "mode": "name",
+                        "value": "public"
+                    },
+                    "table": {
+                        "__rl": true,
+                        "mode": "name",
+                        "value": "failed_messages"
+                    },
+                    "columns": {
+                        "mappingMode": "autoMapInputData",
+                        "value": null,
+                        "matchingColumns": []
+                    },
+                    "options": {}
+                },
+                "id": "db-store-failed-001",
+                "name": "DB_Store_Failed_Message",
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                    2000,
+                    384
+                ],
+                "credentials": {
+                    "postgres": {
+                        "id": "3expq1dbaLHM9U77",
+                        "name": "PostgreSQL account"
+                    }
+                },
+                "alwaysOutputData": true,
+                "onError": "continueRegularOutput"
+            },
+            {
+                "parameters": {
+                    "jsCode": "// Build execution log entry for failed sends\nconst items = $input.all();\nconst userContext = $node[\"Set_User_Context\"].json;\nconst sendResult = $node[\"Send_WAHA_With_Retry\"].json;\nconst faqData = $node[\"Merge_History_Context\"].json;\n\nfor (const item of items) {\n  item.json = {\n    execution_id: $execution.id,\n    workflow_name: 'whatsapp-faq-bot',\n    chat_id: userContext.fromNumber,\n    user_id: userContext.userId || null,\n    phone_number: userContext.fromNumber,\n    status: 'failed_after_retries',\n    execution_data: JSON.stringify({\n      isKnownUser: userContext.isKnownUser,\n      userName: userContext.userName,\n      userPreferredLanguage: userContext.userPreferredLanguage,\n      faqLoaded: faqData.faqLoaded,\n      historyCount: faqData.historyCount,\n      retryCount: sendResult.retryCount,\n      errorReason: sendResult.errorReason,\n      executionTime: new Date().toISOString()\n    })\n  };\n}\nreturn items;"
+                },
+                "id": "build-error-log-001",
+                "name": "Build_Error_Log",
+                "type": "n8n-nodes-base.code",
+                "typeVersion": 2,
+                "position": [
+                    2224,
+                    384
+                ]
+            }
+        ],
+        "connections": {
+            "Webhook_WAHA_Incoming": {
+                "main": [
+                    [
+                        {
+                            "node": "Extract_Message_Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Extract_Message_Data": {
+                "main": [
+                    [
+                        {
+                            "node": "Filter_Self_Messages",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Filter_Self_Messages": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Check_Known_User",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "DB_Check_Known_User": {
+                "main": [
+                    [
+                        {
+                            "node": "Set_User_Context",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Parse_FAQ_Database": {
+                "main": [
+                    [
+                        {
+                            "node": "Check_FAQ_Loaded",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Check_FAQ_Loaded": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Get_History",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Send_Fallback_Error",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "DB_Get_History": {
+                "main": [
+                    [
+                        {
+                            "node": "Merge_History_Context",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Merge_History_Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Build_AI_Prompt",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build_AI_Prompt": {
+                "main": [
+                    [
+                        {
+                            "node": "AI_FAQ_Matcher",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "AI_FAQ_Matcher": {
+                "main": [
+                    [
+                        {
+                            "node": "Extract_AI_Response",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Extract_AI_Response": {
+                "main": [
+                    [
+                        {
+                            "node": "Send_WAHA_With_Retry",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "DB_Store_Conversation": {
+                "main": [
+                    [
+                        {
+                            "node": "Build_Execution_Log",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build_Execution_Log": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Log_Execution",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "DB_Log_Execution": {
+                "main": [
+                    [
+                        {
+                            "node": "Webhook_Response",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send_Fallback_Error": {
+                "main": [
+                    [
+                        {
+                            "node": "Webhook_Response",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Claude_Haiku": {
+                "ai_languageModel": [
+                    [
+                        {
+                            "node": "AI_FAQ_Matcher",
+                            "type": "ai_languageModel",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Set_User_Context": {
+                "main": [
+                    [
+                        {
+                            "node": "Parse_FAQ_Database",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare_Store_Data": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Store_Conversation",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Send_WAHA_With_Retry": {
+                "main": [
+                    [
+                        {
+                            "node": "Check_Send_Status",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Check_Send_Status": {
+                "main": [
+                    [
+                        {
+                            "node": "Prepare_Store_Data",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ],
+                    [
+                        {
+                            "node": "Prepare_Failed_Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Prepare_Failed_Message": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Store_Failed_Message",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "DB_Store_Failed_Message": {
+                "main": [
+                    [
+                        {
+                            "node": "Build_Error_Log",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            },
+            "Build_Error_Log": {
+                "main": [
+                    [
+                        {
+                            "node": "DB_Log_Execution",
+                            "type": "main",
+                            "index": 0
+                        }
+                    ]
+                ]
+            }
+        },
+        "authors": "Choowie Choo",
+        "name": null,
+        "description": null,
+        "autosaved": false,
+        "workflowPublishHistory": [
+            {
+                "createdAt": "2026-02-11T10:56:33.107Z",
+                "id": 66,
+                "workflowId": "F3i-SoCq4WIvV5VTGOOMK",
+                "versionId": "97d50d3f-d0cc-49df-a72e-8fec1ea711ad",
+                "event": "activated",
+                "userId": "9d771ab8-7c04-4902-b8f9-761722ee0187"
+            },
+            {
+                "createdAt": "2026-02-11T10:56:33.170Z",
+                "id": 67,
+                "workflowId": "F3i-SoCq4WIvV5VTGOOMK",
+                "versionId": "97d50d3f-d0cc-49df-a72e-8fec1ea711ad",
+                "event": "activated",
+                "userId": "9d771ab8-7c04-4902-b8f9-761722ee0187"
+            }
+        ]
+    }
+}
